@@ -11,7 +11,17 @@ import {
   BarChart3,
   LogOut,
   Zap,
+  User,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "../ui/button";
+
 
 const navItems = [
   {
@@ -51,7 +61,7 @@ export function DashboardSidebar() {
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 group-hover:animate-glow-pulse transition-all">
                 <Zap className="w-5 h-5 text-primary" />
               </div>
-              <span className="text-xl font-bold text-foreground tracking-tight">
+              <span className="text-2xl font-bold text-foreground tracking-tight">
                 GoalForge
               </span>
             </Link>
@@ -71,7 +81,7 @@ export function DashboardSidebar() {
                     "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
                     isActive
                       ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(0,212,255,0.15)]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:scale-105"
                   )}
                 >
                   <item.icon className="w-5 h-5" />
@@ -82,24 +92,40 @@ export function DashboardSidebar() {
           </nav>
 
           {/* User Section */}
-          <div className="p-4 border-t border-border/50">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/30">
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/20 text-primary font-semibold text-sm">
-                {userEmail?.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {userEmail}
-                </p>
-              </div>
-              <button
-                onClick={logout}
-                className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="p-4  border-t border-border/50">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="flex items-center gap-2 px-1 hover:bg-orange-700/80"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold text-sm">
+                    {userEmail?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className=" text-sm font-medium text-foreground">
+                    {userEmail}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 glass">
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">Account</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {userEmail}
+                  </p>
+                </div>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                  onClick={logout}
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+           </DropdownMenu>
           </div>
         </div>
       </aside>

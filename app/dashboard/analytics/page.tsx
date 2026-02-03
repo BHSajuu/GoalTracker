@@ -71,8 +71,8 @@ export default function AnalyticsPage() {
         className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up"
         style={{ animationDelay: "0.1s" }}
       >
-        <div className="glass-card rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="flex flex-col items-center justify-center gap-1 glass-card rounded-2xl p-5">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <Target className="w-5 h-5 text-primary" />
             </div>
@@ -81,7 +81,7 @@ export default function AnalyticsPage() {
           <p className="text-sm text-muted-foreground">Active Goals</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5">
+        <div className="flex flex-col items-center justify-center gap-1 glass-card rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
           <p className="text-sm text-muted-foreground">Completed Goals</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5">
+        <div className="flex flex-col items-center justify-center gap-1 glass-card rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-accent" />
@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
           <p className="text-sm text-muted-foreground">Avg Progress</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5">
+        <div className="flex flex-col items-center justify-center gap-1 glass-card rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-orange-500" />

@@ -100,7 +100,7 @@ export default function GoalsPage() {
         </div>
         <div className="flex gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] bg-secondary/50 border-border">
+            <SelectTrigger className="w-35 bg-secondary/50 border-border">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -112,7 +112,7 @@ export default function GoalsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px] bg-secondary/50 border-border">
+            <SelectTrigger className="w-40 bg-secondary/50 border-border">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>

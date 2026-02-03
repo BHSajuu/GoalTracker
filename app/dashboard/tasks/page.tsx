@@ -23,10 +23,8 @@ import {
   Search,
   CheckSquare,
   Filter,
-  Calendar,
-  ListTodo,
-  CheckCircle2,
 } from "lucide-react";
+import { TaskStatsCards } from "@/components/tasks/task-stats-cards";
 
 export default function TasksPage() {
   const { userId } = useAuth();
@@ -116,63 +114,12 @@ export default function TasksPage() {
       </div>
 
       {/* Stats */}
-      <div
-        className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-slide-up"
-        style={{ animationDelay: "0.1s" }}
-      >
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <ListTodo className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {tasks.length}
-              </p>
-              <p className="text-xs text-muted-foreground">Total</p>
-            </div>
-          </div>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {todayTasks?.length || 0}
-              </p>
-              <p className="text-xs text-muted-foreground">Today</p>
-            </div>
-          </div>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <CheckSquare className="w-5 h-5 text-orange-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {pendingCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Pending</p>
-            </div>
-          </div>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {completedCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Completed</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <TaskStatsCards 
+        totalTasks={tasks.length}
+        todayTasksCount={todayTasks?.length || 0}
+        pendingTasks={pendingCount}
+        completedTasks={completedCount}
+      />
 
       {/* Filters */}
       <div
@@ -190,7 +137,7 @@ export default function TasksPage() {
         </div>
         <div className="flex gap-2">
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] bg-secondary/50 border-border">
+            <SelectTrigger className="w-39 bg-secondary/50 border-border">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
@@ -202,7 +149,7 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
           <Select value={goalFilter} onValueChange={setGoalFilter}>
-            <SelectTrigger className="w-[160px] bg-secondary/50 border-border">
+            <SelectTrigger className="w-40 bg-secondary/50 border-border">
               <SelectValue placeholder="Goal" />
             </SelectTrigger>
             <SelectContent>
@@ -234,7 +181,7 @@ export default function TasksPage() {
 
         <TabsContent value={activeTab} className="mt-6">
           {sortedTasks && sortedTasks.length > 0 ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {sortedTasks.map((task, index) => (
                 <TaskItem
                   key={task._id}

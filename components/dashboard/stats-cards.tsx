@@ -46,7 +46,7 @@ const stats = [
 
 export function StatsCards(props: StatsCardsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
       {stats.map((stat, index) => (
         <div
           key={stat.title}
@@ -59,11 +59,12 @@ export function StatsCards(props: StatsCardsProps) {
             >
               <stat.icon className={`w-5 h-5 md:w-6 md:h-6 ${stat.color}`} />
             </div>
-          </div>
-          <div>
-            <p className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+             <p className="text-2xl md:text-3xl font-bold text-foreground mb-1 mr-6 md:mr-10">
               {stat.getValue(props)}
             </p>
+          </div>
+          <div>
+           
             <p className="text-xs md:text-sm text-muted-foreground">
               {stat.title}
             </p>

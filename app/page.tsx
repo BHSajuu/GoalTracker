@@ -42,11 +42,11 @@ export default function HomePage() {
           className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float"
           style={{ animationDelay: "1.5s" }}
         />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/3 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-200 bg-primary/3 rounded-full blur-3xl" />
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-4 md:px-12">
+      <nav className="relative  z-10 flex items-center justify-between px-6 py-4 mt-5 md:py-0 md:px-32 md:mt-12">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 animate-glow-pulse">
             <Zap className="w-5 h-5 text-primary" />
@@ -66,7 +66,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 flex flex-col items-center justify-center px-6 py-20 md:py-32 text-center">
+      <section className="relative z-10 flex flex-col items-center justify-center px-6 pb-15 pt-18 md:pb-32 text-center">
         <div className="animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -220,7 +220,7 @@ export default function HomePage() {
       </footer>
 
       {/* Bottom Glow */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent" />
     </main>
   );
 }

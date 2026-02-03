@@ -31,15 +31,15 @@ export function TasksPageSkeleton() {
                   <div className="flex flex-col sm:flex-row gap-4">
                         <Skeleton className="h-10 flex-1 max-w-md" />
                         <div className="flex gap-2">
-                              <Skeleton className="h-10 w-[140px]" />
-                              <Skeleton className="h-10 w-[160px]" />
+                              <Skeleton className="h-10 w-35" />
+                              <Skeleton className="h-10 w-40" />
                         </div>
                   </div>
 
                   {/* Tabs Skeleton */}
                   <div className="space-y-6">
-                        <Skeleton className="h-10 w-[300px]" />
-                        <div className="space-y-3">
+                        <Skeleton className="h-10 w-75" />
+                        <div className="grid grid-cols-1 md:grid-cols-2  gap-4">
                               {[...Array(5)].map((_, i) => (
                                     <div key={i} className="p-4 rounded-xl border border-secondary/10 flex items-center justify-between">
                                           <div className="flex items-center gap-4 flex-1">

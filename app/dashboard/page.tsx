@@ -27,7 +27,7 @@ export default function DashboardPage() {
       {/* Welcome Section */}
       <div className="animate-slide-up">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-          Welcome back!
+          Welcome back !
         </h1>
         <p className="text-muted-foreground">
           Track your progress and achieve your goals.

@@ -218,6 +218,7 @@
   }
 }
 
+
 /* Animation Classes */
 .animate-glow-pulse {
   animation: glow-pulse 2s ease-in-out infinite;
@@ -274,6 +275,9 @@
   transform: translateY(-2px);
 }
 
+
+ 
+
 /* Neon Effects */
 .neon-border {
   border: 1px solid #00d4ff;
@@ -317,3 +321,9 @@
 .stagger-3 { animation-delay: 0.3s; }
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
+
+
+/* Button Hover Effect */
+Button:hover{
+   cursor: pointer;
+}

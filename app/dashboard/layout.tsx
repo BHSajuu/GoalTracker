@@ -43,7 +43,7 @@ export default function DashboardLayout({
       <DashboardSidebar />
       
       {/* Main Content Area */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 ">
         <DashboardHeader />
         <main className="p-4 md:p-6 lg:p-8">
           {children}
