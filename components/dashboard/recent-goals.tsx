@@ -15,7 +15,7 @@ interface RecentGoalsProps {
 export function RecentGoals({ goals }: RecentGoalsProps) {
   const recentGoals = goals
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 5);
+    .slice(0, 3);
 
   return (
     <div

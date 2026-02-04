@@ -35,10 +35,22 @@ export default defineSchema({
     completed: v.boolean(),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
+    estimatedTime: v.optional(v.string()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_goal", ["goalId"])
     .index("by_user_and_date", ["userId", "dueDate"]),
+
+
+  notes: defineTable({
+    userId: v.id("users"),
+    goalId: v.id("goals"),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("link")),
+    content: v.string(), // Text content or Image URL/Storage ID
+    createdAt: v.number(),
+  })
+    .index("by_goal", ["goalId"])
+    .index("by_user", ["userId"]),
 });

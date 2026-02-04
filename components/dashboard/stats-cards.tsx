@@ -1,76 +1,65 @@
-"use client";
-
-import { Target, Flame, CheckCircle2, Clock } from "lucide-react";
+import { Target, Trophy, Flame } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface StatsCardsProps {
   totalGoals: number;
   activeGoals: number;
-  completedTasks: number;
-  pendingTasks: number;
+  currentStreak: number;
 }
 
-const stats = [
-  {
-    title: "Total Goals",
-    icon: Target,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/20",
-    getValue: (props: StatsCardsProps) => props.totalGoals,
-  },
-  {
-    title: "Active Goals",
-    icon: Flame,
-    color: "text-orange-500",
-    bgColor: "bg-orange-500/10",
-    borderColor: "border-orange-500/20",
-    getValue: (props: StatsCardsProps) => props.activeGoals,
-  },
-  {
-    title: "Tasks Completed",
-    icon: CheckCircle2,
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
-    borderColor: "border-green-500/20",
-    getValue: (props: StatsCardsProps) => props.completedTasks,
-  },
-  {
-    title: "Pending Tasks",
-    icon: Clock,
-    color: "text-yellow-500",
-    bgColor: "bg-yellow-500/10",
-    borderColor: "border-yellow-500/20",
-    getValue: (props: StatsCardsProps) => props.pendingTasks,
-  },
-];
-
-export function StatsCards(props: StatsCardsProps) {
+export function StatsCards({
+  totalGoals,
+  activeGoals,
+  currentStreak,
+}: StatsCardsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-      {stats.map((stat, index) => (
-        <div
-          key={stat.title}
-          className={`glass-card rounded-2xl p-4 md:p-6 animate-slide-up stagger-${index + 1}`}
-          style={{ animationDelay: `${index * 0.1}s` }}
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div
-              className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl ${stat.bgColor} border ${stat.borderColor}`}
-            >
-              <stat.icon className={`w-5 h-5 md:w-6 md:h-6 ${stat.color}`} />
-            </div>
-             <p className="text-2xl md:text-3xl font-bold text-foreground mb-1 mr-6 md:mr-10">
-              {stat.getValue(props)}
-            </p>
+    <div className="grid gap-7 md:grid-cols-3">
+      <Card className="glass border-border/50 hover:shadow-primary/60 hover:scale-105 transition-all duration-400">
+        <CardHeader className="flex flex-row items-center justify-center gap-5 space-y-0">
+          <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
+          <Target className="h-6 w-6 text-primary" />
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold">{totalGoals}</div>
+          <p className="text-xs text-muted-foreground">
+            {activeGoals} active now
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="glass border-border/50 relative overflow-hidden hover:shadow-orange-500/60 hover:scale-105 transition-all duration-400">
+        {/* Simple glow effect for streak */}
+        <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-500/20 blur-2xl" />
+
+        <CardHeader className="flex flex-row items-center justify-center gap-5 space-y-0">
+          <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+          <Flame className="h-6 w-6 text-orange-500" />
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold text-orange-500">{currentStreak} Days</div>
+          <p className="text-xs text-muted-foreground">
+            Keep the momentum going!
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="glass border-border/50 hover:shadow-green-500/60 hover:scale-105 transition-all duration-400">
+        <CardHeader className="flex flex-row items-center justify-center gap-5 space-y-0 ">
+          <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+          <Trophy className="h-6 w-6 text-green-500" />
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold">
+            {totalGoals > 0
+              ? Math.round(((totalGoals - activeGoals) / totalGoals) * 100)
+              : 0}
+            %
           </div>
-          <div>
-           
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {stat.title}
-            </p>
-          </div>
-        </div>
-      ))}
+          <p className="text-xs text-muted-foreground">
+            Of total goals achieved
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

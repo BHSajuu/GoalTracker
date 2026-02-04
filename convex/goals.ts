@@ -80,6 +80,16 @@ export const remove = mutation({
       await ctx.db.delete(task._id);
     }
 
+    // Delete all notes associated with this goal
+    const notes = await ctx.db
+        .query("notes")
+        .withIndex("by_goal", (q) => q.eq("goalId", args.id))
+        .collect();
+    
+    for (const note of notes) {
+        await ctx.db.delete(note._id);
+    }
+
     // Delete the goal
     await ctx.db.delete(args.id);
   },
@@ -103,8 +113,7 @@ export const updateProgress = mutation({
 
     await ctx.db.patch(args.id, { 
       progress, 
-      updatedAt: Date.now(),
-      status: progress === 100 ? "completed" : "active"
+      updatedAt: Date.now()
     });
 
     return progress;

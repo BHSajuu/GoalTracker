@@ -9,6 +9,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
+    estimatedTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tasks", {
@@ -19,6 +20,7 @@ export const create = mutation({
       completed: false,
       priority: args.priority,
       dueDate: args.dueDate,
+      estimatedTime: args.estimatedTime,
       createdAt: Date.now(),
     });
   },
@@ -92,6 +94,7 @@ export const update = mutation({
     completed: v.optional(v.boolean()),
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     dueDate: v.optional(v.number()),
+    estimatedTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -143,6 +146,40 @@ export const getStats = query({
     const weekAgo = new Date(today);
     weekAgo.setDate(weekAgo.getDate() - 7);
 
+    // Streak Calculation Start
+    const completedTasksWithDates = tasks
+      .filter((t) => t.completed && t.completedAt)
+      .map((t) => new Date(t.completedAt!).setHours(0, 0, 0, 0))
+      .sort((a, b) => b - a); // Descending
+
+    // Get unique days where at least one task was completed
+    const uniqueDays = Array.from(new Set(completedTasksWithDates));
+
+    let currentStreak = 0;
+    const todayTime = today.getTime();
+    const yesterdayTime = new Date(today).setDate(today.getDate() - 1);
+    
+    // Check if the streak is active (completed something today or yesterday)
+    const hasCompletedToday = uniqueDays.includes(todayTime);
+    const hasCompletedYesterday = uniqueDays.includes(yesterdayTime);
+    
+    if (hasCompletedToday || hasCompletedYesterday) {
+        // Start counting
+        // If we did something today, start from today. If not, start from yesterday.
+        let checkDate = hasCompletedToday ? todayTime : yesterdayTime;
+        
+        for (const day of uniqueDays) {
+            if (day === checkDate) {
+                currentStreak++;
+                // Move checkDate to previous day
+                const d = new Date(checkDate);
+                d.setDate(d.getDate() - 1);
+                checkDate = d.getTime();
+            } 
+        }
+    }
+    // Streak Calculation End
+
     const completedThisWeek = tasks.filter(
       (task) =>
         task.completed &&
@@ -181,6 +218,8 @@ export const getStats = query({
       totalPending,
       completedThisWeek,
       dailyData,
+      currentStreak, 
+      activeDays: uniqueDays, 
     };
   },
 });

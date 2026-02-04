@@ -39,7 +39,7 @@ export function QuickActions() {
       <h2 className="text-lg font-semibold text-foreground mb-4">
         Quick Actions
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-7">
         {actions.map((action) => (
           <Link
             key={action.title}

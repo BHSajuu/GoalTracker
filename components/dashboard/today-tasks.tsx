@@ -67,7 +67,7 @@ export function TodayTasks({ userId }: TodayTasksProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {todayTasks.slice(0, 5).map((task) => (
+          {todayTasks.slice(0, 3).map((task) => (
             <div
               key={task._id}
               className={cn(

@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for existing session
     const storedUserId = localStorage.getItem("goalforge_user_id");
     const storedEmail = localStorage.getItem("goalforge_user_email");
-    
+
     if (storedUserId && storedEmail) {
       setUserId(storedUserId as Id<"users">);
       setUserEmail(storedEmail);
@@ -38,10 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setUserId(null);
-    setUserEmail(null);
+    // 1. Clear Local Storage
     localStorage.removeItem("goalforge_user_id");
     localStorage.removeItem("goalforge_user_email");
+
+    // 2. Clear State
+    setUserId(null);
+    setUserEmail(null);
+
+    // 3. Force Hard Redirect to Home (Most reliable method)
+    window.location.href = "/";
   };
 
   return (

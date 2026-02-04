@@ -11,7 +11,7 @@ import {
   BarChart3,
   LogOut,
   Zap,
-  User,
+  StickyNote, // Import this icon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 
-
+// Navigation Items
 const navItems = [
   {
     title: "Dashboard",
@@ -38,6 +38,11 @@ const navItems = [
     title: "Tasks",
     href: "/dashboard/tasks",
     icon: CheckSquare,
+  },
+  {
+    title: "Notes", 
+    href: "/dashboard/notes",
+    icon: StickyNote,
   },
   {
     title: "Analytics",
@@ -114,8 +119,6 @@ export function DashboardSidebar() {
                     {userEmail}
                   </p>
                 </div>
-                <DropdownMenuSeparator />
-                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="gap-2 cursor-pointer text-destructive focus:text-destructive"
