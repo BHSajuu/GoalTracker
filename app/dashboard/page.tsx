@@ -7,7 +7,7 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentGoals } from "@/components/dashboard/recent-goals";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { QuickActions } from "@/components/dashboard/quick-actions";
-import { StreakCalendar } from "@/components/dashboard/streak-calendar"; // Import the new calendar
+import { StreakCalendar } from "@/components/dashboard/streak-calendar";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
 
 export default function DashboardPage() {
@@ -23,21 +23,22 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8 pb-20 lg:pb-8">
-      {/* Welcome Section */}
-      <div className="flex gap-16">
-        <div className="flex flex-col gap-10">
+    // Added pb-24 to prevent bottom nav from covering content on mobile
+    <div className="space-y-8 pb-24 lg:pb-8">
+      
+      {/* Welcome Section - Flex wrap for responsiveness */}
+      <div className="flex flex-col xl:flex-row gap-8 xl:gap-16">
+        <div className="flex-1 flex flex-col gap-8">
           <div className="animate-slide-up">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-              Welcome back !
+              Welcome back!
             </h1>
             <p className="text-muted-foreground">
               Track your progress and achieve your goals.
             </p>
           </div>
 
-
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-6">
             <StatsCards
               totalGoals={goals?.length || 0}
               activeGoals={goals?.filter((g) => g.status === "active").length || 0}
@@ -45,14 +46,15 @@ export default function DashboardPage() {
             />
             <QuickActions />
           </div>
-
         </div>
 
-        <div className="pt-15 m-3">
+        {/* Calendar - Full width on mobile/tablet, side on desktop */}
+        <div className="w-full xl:w-auto flex justify-center xl:block animate-fade-in">
           <StreakCalendar activeDays={stats?.activeDays || []} />
         </div>
       </div>
 
+      {/* Grid - 1 column on mobile, 2 on tablet+ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <RecentGoals goals={goals || []} />
         <TodayTasks userId={userId!} />

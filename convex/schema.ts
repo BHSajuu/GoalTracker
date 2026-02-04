@@ -48,7 +48,8 @@ export default defineSchema({
     userId: v.id("users"),
     goalId: v.id("goals"),
     type: v.union(v.literal("text"), v.literal("image"), v.literal("link")),
-    content: v.string(), // Text content or Image URL/Storage ID
+    content: v.optional(v.string()), // Text content, Link URL, or legacy Image URL
+    images: v.optional(v.array(v.string())), // Array of Storage IDs or URLs
     createdAt: v.number(),
   })
     .index("by_goal", ["goalId"])

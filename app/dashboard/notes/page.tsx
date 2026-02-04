@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreateNoteDialog } from "@/components/notes/create-note-dialog";
-import { NoteCard } from "@/components/notes/note-card";
 import { StickyNote, FolderOpen } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
+import { NoteCard } from "@/components/notes/note-card";
 
 export default function NotesPage() {
   const { userId } = useAuth();
@@ -41,7 +41,7 @@ export default function NotesPage() {
 
       <div className="flex flex-col md:flex-row gap-6 items-start">
         {/* Goal Selector */}
-        <Card className="w-full md:w-1/3 lg:w-1/8 glass border-border/50">
+        <Card className="w-full md:w-1/3 lg:w-1/7 glass border-border/50">
            <CardContent className="p-4 space-y-4">
              <div className="flex items-center gap-2 text-sm font-medium mb-2">
                <FolderOpen className="w-4 h-4 text-orange-400" /> <span className="opacity-70">Select Goal</span>
@@ -51,7 +51,7 @@ export default function NotesPage() {
                 <p className="text-sm text-muted-foreground">No active goals.</p>
              ) : (
                 <Select value={selectedGoalId} onValueChange={setSelectedGoalId}>
-                  <SelectTrigger className="w-29">
+                  <SelectTrigger className="w-36">
                     <SelectValue placeholder="Choose..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -75,7 +75,7 @@ export default function NotesPage() {
            </CardContent>
         </Card>
 
-        {/* Notes Grid */}
+        {/* Notes Grid - Updated to Columns for Masonry Effect */}
         <div className="flex-1 w-full space-y-4">
           {selectedGoalId && userId ? (
             <>
@@ -94,7 +94,8 @@ export default function NotesPage() {
                    <p className="text-sm text-muted-foreground">No notes yet.</p>
                  </div>
               ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               
+               <div className="space-y-4">
                    {activeNotes.map((note) => (
                      <NoteCard key={note._id} note={note} />
                    ))}
