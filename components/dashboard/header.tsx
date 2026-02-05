@@ -20,8 +20,7 @@ export function DashboardHeader() {
   const { logout, userEmail } = useAuth();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-
-  // Re-define nav items here or import them (better to import, but for safety in this snippet I'll redefine)
+  
   const navItems = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { title: "Goals", href: "/dashboard/goals", icon: Target },
@@ -31,7 +30,7 @@ export function DashboardHeader() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 glass border-b border-border/50 backdrop-blur-md">
+    <header className="lg:hidden sticky top-0 z-40 glass border-b border-border/50 backdrop-blur-md">
       <div className="flex items-center justify-between h-16 px-4 md:px-6">
 
         {/* Tablet/Mobile Hamburger (Visible up to lg) */}

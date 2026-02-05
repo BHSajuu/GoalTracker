@@ -12,7 +12,6 @@ import {
   LogOut,
   Zap,
   StickyNote,
-  Menu,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,7 +21,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
 // Navigation Items
@@ -55,9 +53,9 @@ export function DashboardSidebar() {
 
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || 
+          const isActive = pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          
+
           return (
             <Link
               key={item.href}
@@ -78,17 +76,31 @@ export function DashboardSidebar() {
       </nav>
 
       <div className="p-4 border-t border-border/50">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/30">
-           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-bold text-xs">
-              {userEmail?.charAt(0).toUpperCase()}
-           </div>
-           <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{userEmail}</p>
-           </div>
-           <Button variant="ghost" size="icon" onClick={logout} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-              <LogOut className="w-4 h-4" />
-           </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              className="flex items-center gap-2 px-2 hover:bg-orange-800/70 rounded-full md:rounded-md"
+            >
+              <div className=" flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 hover:bg-gray-800 text-primary font-bold text-xs  transition-all">
+                {userEmail?.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden md:inline text-sm font-medium text-foreground">
+                {userEmail}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 glass">
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium">Account</p>
+              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout} className="text-destructive gap-2 cursor-pointer">
+              <LogOut className="w-4 h-4" /> Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -100,20 +112,13 @@ export function DashboardSidebar() {
         <NavContent />
       </aside>
 
-      {/* Mobile/Tablet Trigger (Visible on md and below, usually in Header, but we can put a trigger here if needed) 
-          Actually, the Hamburger trigger is usually in the Header. 
-          Let's export a specialized "MobileNav" component or handle it via the Header. 
-          For now, we will leave the TRIGGER in the Header component (next step), 
-          but we need to ensure this file exports the content or the Bottom Nav.
-      */}
-
       {/* Mobile Bottom Navigation (Visible only on small screens < md) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/50 pb-safe">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || 
+            const isActive = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            
+
             return (
               <Link
                 key={item.href}
@@ -123,23 +128,10 @@ export function DashboardSidebar() {
                   isActive ? "text-primary scale-110" : "text-muted-foreground opacity-70"
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                {/* Hide text on very small screens if needed, but usually fine */}
+                <item.icon className="w-6 h-6" />
               </Link>
             );
           })}
-          <div className="flex flex-col items-center gap-1 px-4 py-2">
-             <Sheet open={open} onOpenChange={setOpen}>
-               <SheetTrigger asChild>
-                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                   <Menu className="w-5 h-5" />
-                 </Button>
-               </SheetTrigger>
-               <SheetContent side="left" className="p-0 w-72 glass border-r-border/50">
-                 <NavContent />
-               </SheetContent>
-             </Sheet>
-          </div>
         </div>
       </nav>
     </>

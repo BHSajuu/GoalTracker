@@ -23,10 +23,9 @@ export default function DashboardPage() {
   }
 
   return (
-    // Added pb-24 to prevent bottom nav from covering content on mobile
     <div className="space-y-8 pb-24 lg:pb-8">
       
-      {/* Welcome Section - Flex wrap for responsiveness */}
+      {/* Welcome Section  */}
       <div className="flex flex-col xl:flex-row gap-8 xl:gap-16">
         <div className="flex-1 flex flex-col gap-8">
           <div className="animate-slide-up">
@@ -48,13 +47,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Calendar - Full width on mobile/tablet, side on desktop */}
-        <div className="w-full xl:w-auto flex justify-center xl:block animate-fade-in">
+        {/* Calendar*/}
+        <div className="xl:pt-20 w-full xl:w-auto flex justify-center xl:block animate-fade-in">
           <StreakCalendar activeDays={stats?.activeDays || []} />
         </div>
       </div>
 
-      {/* Grid - 1 column on mobile, 2 on tablet+ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <RecentGoals goals={goals || []} />
         <TodayTasks userId={userId!} />

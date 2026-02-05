@@ -1,30 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { UpsertGoalDialog } from "./upsert-goal-dialog";
 
 interface CreateGoalDialogProps {
   userId: Id<"users">;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CreateGoalDialog({ userId }: CreateGoalDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CreateGoalDialog({ userId, open, onOpenChange }: CreateGoalDialogProps) {
+
+  if (open === undefined || onOpenChange === undefined) {
+    return null;
+  }
 
   return (
-    <>
-      <Button onClick={() => setOpen(true)} className="gap-2">
-        <Plus className="w-4 h-4" /> New Goal
-      </Button>
-
-      <UpsertGoalDialog
-        open={open}
-        onOpenChange={setOpen}
-        userId={userId}
-        mode="create"
-      />
-    </>
+    <UpsertGoalDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      userId={userId}
+      mode="create"
+    />
   );
 }
