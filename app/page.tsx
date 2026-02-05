@@ -52,7 +52,7 @@ export default function HomePage() {
             <Zap className="w-5 h-5 text-primary" />
           </div>
           <span className="text-xl font-bold text-foreground tracking-tight">
-            GoalForge
+            Zielio
           </span>
         </div>
         <Link href="/login">
@@ -190,7 +190,7 @@ export default function HomePage() {
               Ready to Transform Your Productivity?
             </h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Join GoalForge today and start your journey towards achieving all
+              Join Zielio today and start your journey towards achieving all
               your academic and personal goals.
             </p>
             <Link href="/login">
@@ -211,7 +211,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">GoalForge</span>
+            <span className="font-semibold text-foreground">Zielio</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Built for ambitious students. Track dreams, achieve goals.

@@ -9,7 +9,6 @@ import { GoalCard } from "@/components/goals/goal-card";
 import { CreateGoalDialog } from "@/components/goals/create-goal-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -18,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search, Target, Filter } from "lucide-react";
+import { GoalsPageSkeleton } from "@/components/goals/skeletons";
 
 export default function GoalsPage() {
   const { userId } = useAuth();
@@ -51,16 +51,7 @@ export default function GoalsPage() {
   });
 
   if (!goals) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-full max-w-md" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-64 rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <GoalsPageSkeleton />;
   }
 
   return (
@@ -100,7 +91,7 @@ export default function GoalsPage() {
         </div>
         <div className="flex gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-35 bg-secondary/50 border-border">
+            <SelectTrigger className="w-40 bg-secondary/50 border-border">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -112,7 +103,7 @@ export default function GoalsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-40 bg-secondary/50 border-border">
+            <SelectTrigger className="w-46 bg-secondary/50 border-border">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -128,43 +119,62 @@ export default function GoalsPage() {
       </div>
 
       {/* Goals Grid */}
-      {filteredGoals && filteredGoals.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredGoals.map((goal, index) => (
-            <GoalCard
-              key={goal._id}
-              goal={goal}
-              style={{ animationDelay: `${index * 0.1}s` }}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
-            <Target className="w-10 h-10 text-primary" />
+      <div 
+        className="animate-slide-up min-h-[400px]" 
+        style={{ animationDelay: "0.2s" }}
+      >
+        {filteredGoals && filteredGoals.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredGoals.map((goal, index) => (
+              <GoalCard
+                key={goal._id}
+                goal={goal}
+                style={{ 
+                  animationDelay: `${0.1 + (index * 0.05)}s`,
+                }}
+              />
+            ))}
           </div>
-          <h3 className="text-xl font-semibold text-foreground mb-2">
-            {searchQuery || statusFilter !== "all" || categoryFilter !== "all"
-              ? "No goals found"
-              : "No goals yet"}
-          </h3>
-          <p className="text-muted-foreground mb-6 max-w-md">
-            {searchQuery || statusFilter !== "all" || categoryFilter !== "all"
-              ? "Try adjusting your filters"
-              : "Create your first goal to start tracking your progress"}
-          </p>
-          {!(
-            searchQuery ||
-            statusFilter !== "all" ||
-            categoryFilter !== "all"
-          ) && (
-            <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create your first goal
-            </Button>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center h-[50vh] text-center border-2 border-dashed border-secondary rounded-3xl bg-secondary/5 p-8">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center mb-6 shadow-inner">
+              <Target className="w-10 h-10 text-primary/80" />
+            </div>
+            <h3 className="text-xl font-semibold text-foreground mb-2">
+              {searchQuery || statusFilter !== "all" || categoryFilter !== "all"
+                ? "No matching goals found"
+                : "Your goal journey starts here"}
+            </h3>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
+              {searchQuery || statusFilter !== "all" || categoryFilter !== "all"
+                ? "We couldn't find any goals matching your current filters. Try adjusting them or clear all filters."
+                : "Create your first goal to begin tracking your progress, building habits, and achieving your dreams."}
+            </p>
+            
+            {searchQuery || statusFilter !== "all" || categoryFilter !== "all" ? (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setCategoryFilter("all");
+                }}
+                className="rounded-xl border-secondary-foreground/20"
+              >
+                Clear all filters
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => setIsCreateOpen(true)} 
+                className="gap-2 rounded-xl h-11 px-8 shadow-lg shadow-primary/20"
+              >
+                <Plus className="w-4 h-4" />
+                Create your first goal
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Create Goal Dialog */}
       <CreateGoalDialog

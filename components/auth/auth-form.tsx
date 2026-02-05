@@ -40,7 +40,7 @@ export function AuthForm() {
 
     try {
       const generatedOtp = generateOtp();
-      
+
       // Store OTP in database
       await createOtp({ email, code: generatedOtp });
 
@@ -65,7 +65,7 @@ export function AuthForm() {
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) return;
-    
+
     setError("");
     setIsLoading(true);
 
@@ -120,7 +120,7 @@ export function AuthForm() {
           <Shield className="w-8 h-8 text-primary" />
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2 neon-text">
-          GoalForge
+          Zielio
         </h1>
         <p className="text-muted-foreground">
           {step === "email" && "Sign in to track your goals"}

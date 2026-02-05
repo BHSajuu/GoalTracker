@@ -34,6 +34,8 @@ interface GoalCardProps {
 
 export function GoalCard({ goal, style }: GoalCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
 
@@ -56,11 +58,18 @@ export function GoalCard({ goal, style }: GoalCardProps) {
   return (
     <>
       <div
-        className="glass-card rounded-2xl overflow-hidden group animate-scale-in"
-        style={style}
+        className="glass-card rounded-2xl overflow-hidden group animate-scale-in shadow-lg hover:scale-105 transition-all duration-300"
+        style={{
+          ...style,
+          boxShadow: isHovered 
+            ? `0 10px 40px -10px ${goal.color}66` 
+            : undefined
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <div
-          className="h-2"
+          className="h-1"
           style={{
             background: `linear-gradient(90deg, ${goal.color}, ${goal.color}88)`,
           }}
@@ -96,14 +105,18 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                {/* 1. Added focus:bg-primary/10 here */}
+                <DropdownMenuItem 
+                    onClick={() => setIsEditing(true)} 
+                    className="cursor-pointer gap-2 focus:bg-primary/20"
+                >
                   <Pencil className="w-4 h-4" /> Edit Goal
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {goal.status !== "completed" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("completed")}
-                    className="gap-2"
+                    className="cursor-pointer gap-2 focus:bg-primary/20"
                   >
                     <CheckCircle className="w-4 h-4" />
                     Mark Complete
@@ -112,7 +125,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                 {goal.status === "active" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("paused")}
-                    className="gap-2"
+                    className="cursor-pointer gap-2 focus:bg-primary/20"
                   >
                     <Pause className="w-4 h-4" />
                     Pause Goal
@@ -121,7 +134,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                 {goal.status === "paused" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("active")}
-                    className="gap-2"
+                    className="cursor-pointer gap-2 focus:bg-primary/10"
                   >
                     <Play className="w-4 h-4" />
                     Resume Goal
@@ -130,7 +143,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleDelete}
-                  className="gap-2 text-destructive focus:text-destructive"
+                  className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Goal
@@ -154,12 +167,8 @@ export function GoalCard({ goal, style }: GoalCardProps) {
             </div>
             <Progress
               value={goal.progress}
-              className="h-2"
-              style={
-                {
-                  "--primary": goal.color,
-                } as React.CSSProperties
-              }
+              className="h-1.5"
+              indicatorColor={goal.color}
             />
           </div>
 

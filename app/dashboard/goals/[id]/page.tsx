@@ -22,6 +22,9 @@ import {
   Trash2,
   CheckCircle2,
   ListTodo,
+  Clock,
+  Trophy,
+  AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,21 +61,32 @@ export default function GoalDetailPage({
 
   if (goal === undefined || tasks === undefined) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
+      <div className="space-y-8 max-w-400 mx-auto pb-8">
+        <Skeleton className="h-6 w-24" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <div className="lg:col-span-2 space-y-6">
+               <Skeleton className="h-64 w-full rounded-3xl" />
+               <Skeleton className="h-96 w-full rounded-3xl" />
+           </div>
+           <div className="space-y-6">
+               <Skeleton className="h-40 w-full rounded-3xl" />
+               <Skeleton className="h-40 w-full rounded-3xl" />
+           </div>
+        </div>
       </div>
     );
   }
 
   if (!goal) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Target className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-20 h-20 rounded-full bg-secondary/30 flex items-center justify-center mb-6">
+            <AlertCircle className="w-10 h-10 text-muted-foreground" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">
           Goal not found
         </h2>
+        <p className="text-muted-foreground mb-6">This goal may have been deleted.</p>
         <Button onClick={() => router.push("/dashboard/goals")}>
           Back to Goals
         </Button>
@@ -87,185 +101,233 @@ export default function GoalDetailPage({
     : null;
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-8">
-      {/* Back Button */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors animate-fade-in"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+    <div className="space-y-8 pb-20 lg:pb-8 max-w-400 mx-auto">
+      {/* Dynamic Background Glow */}
+      <div 
+        className="fixed top-20 right-0 -z-10 w-125 h-125 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-1000"
+        style={{ backgroundColor: goal.color }}
+      />
 
-      {/* Goal Header */}
-      <div
-        className="glass-card rounded-2xl overflow-hidden animate-slide-up"
-        style={{ animationDelay: "0.1s" }}
-      >
-        <div
-          className="h-2"
-          style={{
-            background: `linear-gradient(90deg, ${goal.color}, ${goal.color}88)`,
-          }}
-        />
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: `${goal.color}20` }}
-                >
-                  <Target className="w-5 h-5" style={{ color: goal.color }} />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  {goal.title}
-                </h1>
-              </div>
-              <span
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-                style={{
-                  backgroundColor: `${goal.color}20`,
-                  color: goal.color,
-                }}
-              >
-                {goal.category}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDelete}
-                className="gap-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 bg-transparent"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </div>
+      {/* Navigation */}
+      <div className="flex items-center justify-between animate-slide-up">
+        <button
+          onClick={() => router.back()}
+          className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <div className="w-8 h-8 rounded-full bg-secondary/50 flex items-center justify-center group-hover:bg-secondary transition-colors">
+            <ArrowLeft className="w-4 h-4" />
           </div>
+          <span className="font-medium">Back to Goals</span>
+        </button>
 
-          {goal.description && (
-            <p className="text-muted-foreground mb-6">{goal.description}</p>
-          )}
-
-          {/* Progress */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">
-                Overall Progress
-              </span>
-              <span className="text-lg font-semibold text-foreground">
-                {goal.progress}%
-              </span>
-            </div>
-            <Progress
-              value={goal.progress}
-              className="h-3"
-              style={
-                {
-                  "--primary": goal.color,
-                } as React.CSSProperties
-              }
-            />
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-secondary/30">
-              <p className="text-2xl font-bold text-foreground">
-                {tasks.length}
-              </p>
-              <p className="text-sm text-muted-foreground">Total Tasks</p>
-            </div>
-            <div className="p-4 rounded-xl bg-green-500/10">
-              <p className="text-2xl font-bold text-green-500">
-                {completedTasks}
-              </p>
-              <p className="text-sm text-muted-foreground">Completed</p>
-            </div>
-            <div className="p-4 rounded-xl bg-yellow-500/10">
-              <p className="text-2xl font-bold text-yellow-500">
-                {pendingTasks}
-              </p>
-              <p className="text-sm text-muted-foreground">Pending</p>
-            </div>
-            <div className="p-4 rounded-xl bg-primary/10">
-              <p className="text-2xl font-bold text-primary">
-                {daysRemaining !== null
-                  ? daysRemaining > 0
-                    ? daysRemaining
-                    : daysRemaining === 0
-                      ? "Today"
-                      : "Overdue"
-                  : "-"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {daysRemaining !== null && daysRemaining > 0
-                  ? "Days Left"
-                  : "Target"}
-              </p>
-            </div>
-          </div>
-        </div>
+        <Button
+            variant="ghost"
+            onClick={handleDelete}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete Goal
+        </Button>
       </div>
 
-      {/* Tasks Section */}
-      <div
-        className="glass-card rounded-2xl p-6 animate-slide-up"
-        style={{ animationDelay: "0.2s" }}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-primary" />
-            Tasks
-          </h2>
-          <Button
-            onClick={() => setIsTaskDialogOpen(true)}
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
-          </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+        
+        {/* Left Column: Main Info & Tasks */}
+        <div className="lg:col-span-2 space-y-8">
+            
+            {/* Header Card */}
+            <div className="glass-card p-8 rounded-3xl border border-secondary/20 relative overflow-hidden group">
+                {/* Decorative gradient line */}
+                <div 
+                    className="absolute top-0 left-0 w-full h-1.5 opacity-80"
+                    style={{ background: `linear-gradient(90deg, ${goal.color}, ${goal.color}22)` }} 
+                />
+                
+                <div className="flex flex-col gap-6">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-4 flex-1">
+                            <span
+                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase"
+                                style={{
+                                    backgroundColor: `${goal.color}15`,
+                                    color: goal.color,
+                                    border: `1px solid ${goal.color}30`
+                                }}
+                            >
+                                {goal.category}
+                            </span>
+                            <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                                {goal.title}
+                            </h1>
+                        </div>
+                        <div 
+                            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
+                            style={{ backgroundColor: goal.color, boxShadow: `0 8px 30px -4px ${goal.color}66` }}
+                        >
+                            <Target className="w-7 h-7 text-white" />
+                        </div>
+                    </div>
+
+                    {goal.description && (
+                        <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                            {goal.description}
+                        </p>
+                    )}
+
+                    <div className="pt-6 mt-2 border-t border-border/40">
+                        <div className="flex items-end justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Progress Tracker</p>
+                                <p className="text-3xl font-bold text-foreground">{goal.progress}%</p>
+                            </div>
+                            <span className="text-sm font-medium text-muted-foreground mb-1">
+                                {completedTasks} of {tasks.length} tasks completed
+                            </span>
+                        </div>
+                        <Progress
+                            value={goal.progress}
+                            className="h-2 rounded-full bg-secondary"
+                            indicatorColor={goal.color}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Tasks Section */}
+            <div className="space-y-6">
+                <div className="flex items-center justify-between px-2">
+                    <h2 className="text-xl font-bold flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-primary/10">
+                            <ListTodo className="w-5 h-5 text-primary" />
+                        </div>
+                        Tasks & Milestones
+                    </h2>
+                    <Button
+                        onClick={() => setIsTaskDialogOpen(true)}
+                        className="rounded-xl shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add New Task
+                    </Button>
+                </div>
+
+                <div className="glass-card p-2 rounded-2xl border border-secondary/20 min-h-50">
+                    {tasks.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="w-20 h-20 rounded-full bg-secondary/30 flex items-center justify-center mb-4 animate-pulse">
+                                <ListTodo className="w-8 h-8 text-muted-foreground/50" />
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">No tasks created yet</h3>
+                            <p className="text-muted-foreground mb-6 max-w-sm">
+                                Break down your goal into smaller, manageable tasks to start tracking progress.
+                            </p>
+                            <Button
+                                onClick={() => setIsTaskDialogOpen(true)}
+                                variant="outline"
+                                className="border-primary/20 hover:bg-primary/5 hover:text-primary"
+                            >
+                                Create your first task
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-2 p-2">
+                            {tasks
+                                .sort((a, b) => {
+                                    if (a.completed !== b.completed) {
+                                        return a.completed ? 1 : -1;
+                                    }
+                                    return b.createdAt - a.createdAt;
+                                })
+                                .map((task) => (
+                                    <TaskItem
+                                        key={task._id}
+                                        task={task}
+                                        goalColor={goal.color}
+                                        goalId={goal._id}
+                                    />
+                                ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
 
-        {tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-8 h-8 text-primary" />
+        {/* Right Column: Stats Grid */}
+        <div className="space-y-6">
+            <h3 className="text-lg font-semibold px-2">Analytics</h3>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
+                {/* Total Tasks Card */}
+                <div className="glass-card p-5 rounded-2xl border border-secondary/20 flex items-center gap-4 group hover:bg-secondary/40 transition-colors">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                        <ListTodo className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground font-medium">Total Tasks</p>
+                        <p className="text-2xl font-bold">{tasks.length}</p>
+                    </div>
+                </div>
+
+                {/* Completed Card */}
+                <div className="glass-card p-5 rounded-2xl border border-secondary/20 flex items-center gap-4 group hover:bg-secondary/40 transition-colors">
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
+                        <Trophy className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground font-medium">Completed</p>
+                        <p className="text-2xl font-bold">{completedTasks}</p>
+                    </div>
+                </div>
+
+                {/* Pending Card */}
+                <div className="glass-card p-5 rounded-2xl border border-secondary/20 flex items-center gap-4 group hover:bg-secondary/40 transition-colors">
+                    <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 group-hover:scale-110 transition-transform">
+                        <Clock className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground font-medium">Pending</p>
+                        <p className="text-2xl font-bold">{pendingTasks}</p>
+                    </div>
+                </div>
+
+                {/* Time Remaining Card */}
+                <div className="glass-card p-5 rounded-2xl border border-secondary/20 flex items-center gap-4 group hover:bg-secondary/40 transition-colors relative overflow-hidden">
+                    {/* Subtle progress background for time */}
+                    <div 
+                        className="absolute bottom-0 left-0 h-1 bg-primary/20" 
+                        style={{ width: '100%' }}
+                    />
+                    
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <Calendar className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground font-medium">
+                            {daysRemaining !== null && daysRemaining > 0
+                                ? "Time Remaining"
+                                : "Status"}
+                        </p>
+                        <p className="text-xl font-bold">
+                            {daysRemaining !== null
+                                ? daysRemaining > 0
+                                    ? `${daysRemaining} Days`
+                                    : daysRemaining === 0
+                                        ? "Due Today"
+                                        : "Overdue"
+                                : "No Deadline"}
+                        </p>
+                    </div>
+                </div>
             </div>
-            <p className="text-muted-foreground mb-4">
-              No tasks yet for this goal
-            </p>
-            <Button
-              onClick={() => setIsTaskDialogOpen(true)}
-              variant="outline"
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add your first task
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {tasks
-              .sort((a, b) => {
-                if (a.completed !== b.completed) {
-                  return a.completed ? 1 : -1;
-                }
-                return b.createdAt - a.createdAt;
-              })
-              .map((task) => (
-                <TaskItem
-                  key={task._id}
-                  task={task}
-                  goalColor={goal.color}
-                  goalId={goal._id}
-                />
-              ))}
-          </div>
-        )}
+
+            {/* Motivation Quote / Tip area (Optional placeholder for visual balance) */}
+            <div className="glass-card p-6 rounded-2xl border border-dashed border-secondary/30 bg-secondary/5 mt-8">
+                <p className="text-sm text-muted-foreground italic text-center">
+                    "Small steps every day add up to big results. Keep pushing!"
+                </p>
+            </div>
+        </div>
+
       </div>
 
       {/* Create Task Dialog */}

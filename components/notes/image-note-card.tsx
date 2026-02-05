@@ -156,7 +156,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       {/* Custom Full Screen Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed mt-44 m-4 md:m-10  max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-[9999] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center"
+          className="fixed mt-44 m-4 md:m-10 rounded-4xl max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
           onClick={() => setLightboxIndex(null)} // Close on backdrop click
         >
           {/* Close Button */}

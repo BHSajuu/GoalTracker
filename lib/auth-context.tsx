@@ -20,8 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check for existing session
-    const storedUserId = localStorage.getItem("goalforge_user_id");
-    const storedEmail = localStorage.getItem("goalforge_user_email");
+    const storedUserId = localStorage.getItem("Zielio_user_id");
+    const storedEmail = localStorage.getItem("Zielio_user_email");
 
     if (storedUserId && storedEmail) {
       setUserId(storedUserId as Id<"users">);
@@ -33,14 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (newUserId: Id<"users">, email: string) => {
     setUserId(newUserId);
     setUserEmail(email);
-    localStorage.setItem("goalforge_user_id", newUserId);
-    localStorage.setItem("goalforge_user_email", email);
+    localStorage.setItem("Zielio_user_id", newUserId);
+    localStorage.setItem("Zielio_user_email", email);
   };
 
   const logout = () => {
     // 1. Clear Local Storage
-    localStorage.removeItem("goalforge_user_id");
-    localStorage.removeItem("goalforge_user_email");
+    localStorage.removeItem("Zielio_user_id");
+    localStorage.removeItem("Zielio_user_email");
 
     // 2. Clear State
     setUserId(null);

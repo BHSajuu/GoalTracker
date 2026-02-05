@@ -16,21 +16,26 @@ import { CreateNoteDialog } from "@/components/notes/create-note-dialog";
 import { StickyNote, FolderOpen } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
 import { NoteCard } from "@/components/notes/note-card";
+import { NoteListSkeleton, NotesPageSkeleton } from "@/components/notes/skeletons";
 
 export default function NotesPage() {
   const { userId } = useAuth();
   const [selectedGoalId, setSelectedGoalId] = useState<string>("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false); 
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
 
   const goalId = selectedGoalId as Id<"goals">;
   const activeNotes = useQuery(api.notes.getByGoal, goalId ? { goalId } : "skip");
 
+  if (goals === undefined) {
+    return <NotesPageSkeleton />;
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] space-y-4">
+    <div className="flex flex-col h-[100vh] space-y-3">
       <div className="animate-slide-up flex-shrink-0">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
           Notes
         </h1>
         <p className="text-muted-foreground">
@@ -41,7 +46,7 @@ export default function NotesPage() {
       <div className="flex flex-col md:flex-row gap-6 items-start h-full overflow-hidden">
         {/* Goal Selector - Sticky/Fixed */}
         <Card className="w-full md:w-1/3 lg:w-1/4 glass border-border/50 flex-shrink-0">
-          <CardContent className="p-4 space-y-4">
+          <CardContent className=" md:p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium mb-2">
               <FolderOpen className="w-4 h-4 text-orange-400" /> <span className="opacity-70">Select Goal</span>
             </div>
@@ -93,7 +98,7 @@ export default function NotesPage() {
               {/* Scrollable Area */}
               <div className="flex-1 overflow-y-auto pr-2 pb-20 custom-scrollbar">
                 {activeNotes === undefined ? (
-                  <div className="text-center p-8 text-muted-foreground">Loading...</div>
+                  <NoteListSkeleton />
                 ) : activeNotes.length === 0 ? (
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border/50 rounded-xl">
                     <StickyNote className="w-10 h-10 text-muted-foreground mb-3 opacity-30" />

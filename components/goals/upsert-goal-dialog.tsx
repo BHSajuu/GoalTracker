@@ -34,8 +34,8 @@ interface UpsertGoalDialogProps {
 }
 
 const colorOptions = [
-  "#00d4ff", "#7c3aed", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+  "#00d4ff", "#7c3aed", "#10b981", "#f8bd56",
+  "#ef4444", "#e07fb0", "#292cdb", "#155f57",
 ];
 
 export function UpsertGoalDialog({

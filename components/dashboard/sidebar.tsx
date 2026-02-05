@@ -46,7 +46,7 @@ export function DashboardSidebar() {
             <Zap className="w-5 h-5 text-primary" />
           </div>
           <span className="text-2xl font-bold text-foreground tracking-tight">
-            GoalForge
+            Zielio
           </span>
         </Link>
       </div>

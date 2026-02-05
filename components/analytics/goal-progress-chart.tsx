@@ -69,11 +69,7 @@ export function GoalProgressChart({ goals }: GoalProgressChartProps) {
               <Progress
                 value={goal.progress}
                 className="h-2.5"
-                style={
-                  {
-                    "--primary": goal.color,
-                  } as React.CSSProperties
-                }
+                indicatorColor="#10b981"
               />
             </Link>
           ))}

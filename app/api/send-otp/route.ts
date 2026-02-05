@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     }
 
     const mailOptions = {
-      from: `"GoalForge" <${process.env.SMTP_USER}>`,
+      from: `"Zielio" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Your GoalForge Verification Code",
+      subject: "Your Zielio Verification Code",
       html: `
         <!DOCTYPE html>
         <html>
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
                   <table width="100%" max-width="500" cellpadding="0" cellspacing="0" style="max-width: 500px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; border: 1px solid #00d4ff33; overflow: hidden;">
                     <tr>
                       <td style="padding: 40px 30px; text-align: center;">
-                        <h1 style="color: #00d4ff; margin: 0 0 10px 0; font-size: 28px; font-weight: 700; letter-spacing: 2px;">GOALFORGE</h1>
+                        <h1 style="color: #00d4ff; margin: 0 0 10px 0; font-size: 28px; font-weight: 700; letter-spacing: 2px;">Zielio</h1>
                         <p style="color: #64748b; margin: 0; font-size: 14px; letter-spacing: 1px;">VERIFICATION CODE</p>
                       </td>
                     </tr>
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
                     <tr>
                       <td style="padding: 20px 30px; background: #0f0f1a; text-align: center; border-top: 1px solid #1e293b;">
                         <p style="color: #475569; font-size: 12px; margin: 0;">
-                          Powered by GoalForge - Track Your Dreams
+                          Powered by Zielio - Track Your Dreams
                         </p>
                       </td>
                     </tr>

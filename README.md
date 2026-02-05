@@ -1,4 +1,4 @@
-# 🚀 GoalForge
+# 🚀 Zielio
 
 > **Track Your Dreams, Achieve Your Goals.**
 
@@ -8,7 +8,7 @@
 ![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue)
 ![Tailwind](https://img.shields.io/badge/Style-Tailwind_CSS-cyan)
 
-**GoalForge** is a modern, futuristic goal-tracking platform designed to help students and ambitious individuals turn their aspirations into reality. Built with a focus on aesthetics and productivity, it combines powerful task management with beautiful, real-time data visualization.
+**Zielio** is a modern, futuristic goal-tracking platform designed to help students and ambitious individuals turn their aspirations into reality. Built with a focus on aesthetics and productivity, it combines powerful task management with beautiful, real-time data visualization.
 
 ---
 

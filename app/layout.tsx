@@ -18,7 +18,7 @@ const _orbitron = Orbitron({
 });
 
 export const metadata: Metadata = {
-  title: "GoalForge - Track Your Dreams",
+  title: "Zielio - Track Your Dreams",
   description:
     "A futuristic goal tracking platform for ambitious students. Track goals, manage tasks, and achieve your dreams.",
   icons: {
