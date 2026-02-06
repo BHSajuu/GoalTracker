@@ -20,11 +20,14 @@ import {
   Calendar,
   Flag,
   Clock,
-  Pencil
+  Pencil,
+  PlayCircle,
+  Hourglass
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpsertTaskDialog } from "./upsert-task-dialog";
+import { FocusTimerDialog } from "./focus-timer-dialog";
 
 interface TaskItemProps {
   task: Doc<"tasks">;
@@ -44,6 +47,7 @@ export function TaskItem({
   style,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isFocusOpen, setIsFocusOpen] = useState(false);
 
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
@@ -134,52 +138,67 @@ export function TaskItem({
               </div>
 
               {/* Actions */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-1">
+                {/* Focus Button (Only for incomplete tasks) */}
+                {!task.completed && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    onClick={() => setIsFocusOpen(true)}
+                    title="Start Focus Session"
                   >
-                    <MoreHorizontal className="w-4 h-4" />
+                    <PlayCircle className="w-4 h-4" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
-                    <Pencil className="w-4 h-4" /> Edit Task
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => handlePriorityChange("high")}
-                    className="gap-2"
-                  >
-                    <Flag className="w-4 h-4 text-red-500" />
-                    High Priority
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlePriorityChange("medium")}
-                    className="gap-2"
-                  >
-                    <Flag className="w-4 h-4 text-yellow-500" />
-                    Medium Priority
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlePriorityChange("low")}
-                    className="gap-2"
-                  >
-                    <Flag className="w-4 h-4 text-green-500" />
-                    Low Priority
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="gap-2 text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Task
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                      <Pencil className="w-4 h-4" /> Edit Task
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handlePriorityChange("high")}
+                      className="gap-2"
+                    >
+                      <Flag className="w-4 h-4 text-red-500" />
+                      High Priority
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handlePriorityChange("medium")}
+                      className="gap-2"
+                    >
+                      <Flag className="w-4 h-4 text-yellow-500" />
+                      Medium Priority
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handlePriorityChange("low")}
+                      className="gap-2"
+                    >
+                      <Flag className="w-4 h-4 text-green-500" />
+                      Low Priority
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Task
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             {/* Meta Info */}
@@ -232,6 +251,14 @@ export function TaskItem({
                   {task.estimatedTime}
                 </span>
               )}
+
+              {/* Actual Time Display */}
+              {task.actualTime ? (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  <Hourglass className="w-3 h-3" />
+                  {task.actualTime}m focused
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -243,6 +270,16 @@ export function TaskItem({
         userId={task.userId}
         mode="edit"
         initialData={task}
+      />
+
+      {/* Focus Timer Dialog */}
+      <FocusTimerDialog
+        taskId={task._id}
+        userId={task.userId} // Passing the required User ID
+        taskTitle={task.title}
+        estimatedTime={task.estimatedTime} // Passing estimated time
+        isOpen={isFocusOpen}
+        onOpenChange={setIsFocusOpen}
       />
     </>
   );
