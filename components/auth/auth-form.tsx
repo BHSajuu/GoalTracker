@@ -1,9 +1,7 @@
 "use client";
 
-import React from "react"
-
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import React, { useState } from "react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -15,6 +13,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Mail, ArrowRight, Loader2, Shield, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 
 type AuthStep = "email" | "otp" | "success";
 
@@ -26,12 +25,9 @@ export function AuthForm() {
   const [error, setError] = useState("");
 
   const { login } = useAuth();
-  const createOtp = useMutation(api.auth.createOtp);
-  const verifyOtp = useMutation(api.auth.verifyOtp);
 
-  const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
+  const sendOtp = useAction(api.email.sendOtp);
+  const verifyOtp = useMutation(api.auth.verifyOtp);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,25 +35,12 @@ export function AuthForm() {
     setIsLoading(true);
 
     try {
-      const generatedOtp = generateOtp();
-
-      // Store OTP in database
-      await createOtp({ email, code: generatedOtp });
-
-      // Send OTP via email
-      const response = await fetch("/api/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: generatedOtp }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send OTP");
-      }
-
+      await sendOtp({ email });
       setStep("otp");
-    } catch {
-      setError("Failed to send verification code. Please try again.");
+      toast.success("Verification code sent to your email");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to send code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +48,6 @@ export function AuthForm() {
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) return;
-
     setError("");
     setIsLoading(true);
 
@@ -77,11 +59,9 @@ export function AuthForm() {
         setTimeout(() => {
           login(result.userId!, email);
         }, 1500);
-      } else {
-        setError(result.error || "Invalid verification code");
       }
-    } catch {
-      setError("Verification failed. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Invalid code");
     } finally {
       setIsLoading(false);
     }
@@ -93,20 +73,10 @@ export function AuthForm() {
     setIsLoading(true);
 
     try {
-      const generatedOtp = generateOtp();
-      await createOtp({ email, code: generatedOtp });
-
-      const response = await fetch("/api/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: generatedOtp }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to resend OTP");
-      }
-    } catch {
-      setError("Failed to resend code. Please try again.");
+      await sendOtp({ email });
+      toast.success("Code resent successfully");
+    } catch (err) {
+      setError("Failed to resend code");
     } finally {
       setIsLoading(false);
     }
@@ -263,7 +233,6 @@ export function AuthForm() {
         )}
       </div>
 
-      {/* Footer */}
       <p className="text-center text-xs text-muted-foreground mt-6 animate-fade-in stagger-3">
         By continuing, you agree to our Terms of Service and Privacy Policy
       </p>

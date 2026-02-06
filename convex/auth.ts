@@ -1,10 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, internalMutation } from "./_generated/server";
 
-export const createOtp = mutation({
+
+export const saveOtp = internalMutation({
   args: { email: v.string(), code: v.string() },
   handler: async (ctx, args) => {
-    // Invalidate any existing OTPs for this email
     const existingOtps = await ctx.db
       .query("otpCodes")
       .withIndex("by_email", (q) => q.eq("email", args.email))
@@ -14,16 +14,18 @@ export const createOtp = mutation({
       await ctx.db.delete(otp._id);
     }
 
-    // Create new OTP (expires in 10 minutes)
-    return await ctx.db.insert("otpCodes", {
+    await ctx.db.insert("otpCodes", {
       email: args.email,
       code: args.code,
-      expiresAt: Date.now() + 10 * 60 * 1000,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
       used: false,
     });
   },
 });
 
+
+
+//  Verify OTP 
 export const verifyOtp = mutation({
   args: { email: v.string(), code: v.string() },
   handler: async (ctx, args) => {
@@ -32,26 +34,15 @@ export const verifyOtp = mutation({
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
 
-    if (!otp) {
-      return { success: false, error: "No OTP found for this email" };
-    }
+    if (!otp) throw new Error("Code not found or expired");
+    if (otp.used) throw new Error("Code already used");
+    if (otp.expiresAt < Date.now()) throw new Error("Code expired");
+    if (otp.code !== args.code) throw new Error("Invalid code");
 
-    if (otp.used) {
-      return { success: false, error: "OTP has already been used" };
-    }
-
-    if (otp.expiresAt < Date.now()) {
-      return { success: false, error: "OTP has expired" };
-    }
-
-    if (otp.code !== args.code) {
-      return { success: false, error: "Invalid OTP" };
-    }
-
-    // Mark OTP as used
+    // Mark used
     await ctx.db.patch(otp._id, { used: true });
 
-    // Create or get user
+    // Get or Create User
     let user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
@@ -62,19 +53,10 @@ export const verifyOtp = mutation({
         email: args.email,
         createdAt: Date.now(),
       });
+      // Correctly fetching the user we just created
       user = await ctx.db.get(userId);
     }
 
     return { success: true, userId: user?._id };
-  },
-});
-
-export const getOtpByEmail = query({
-  args: { email: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("otpCodes")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
   },
 });
