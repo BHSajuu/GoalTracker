@@ -21,13 +21,11 @@ import {
   Flag,
   Clock,
   Pencil,
-  PlayCircle,
-  Hourglass
+  Archive
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpsertTaskDialog } from "./upsert-task-dialog";
-import { FocusTimerDialog } from "./focus-timer-dialog";
 
 interface TaskItemProps {
   task: Doc<"tasks">;
@@ -36,6 +34,7 @@ interface TaskItemProps {
   goalTitle?: string;
   showGoalInfo?: boolean;
   style?: React.CSSProperties;
+  isHardDelete?: boolean; // NEW PROP
 }
 
 export function TaskItem({
@@ -45,13 +44,14 @@ export function TaskItem({
   goalTitle,
   showGoalInfo,
   style,
+  isHardDelete = false, // Default to Soft Delete
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isFocusOpen, setIsFocusOpen] = useState(false);
 
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
-  const removeTask = useMutation(api.tasks.remove);
+  const removeTask = useMutation(api.tasks.remove); // Hard Delete
+  const archiveTask = useMutation(api.tasks.archive); // Soft Delete
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
@@ -60,9 +60,19 @@ export function TaskItem({
   };
 
   const handleDelete = async () => {
-    await removeTask({ id: task._id });
-    await updateGoalProgress({ id: goalId });
-    toast.success("Task deleted");
+    if (isHardDelete) {
+        // Permanent Delete
+        if(confirm("This will permanently delete the task. Continue?")) {
+            await removeTask({ id: task._id });
+            await updateGoalProgress({ id: goalId });
+            toast.success("Task permanently deleted");
+        }
+    } else {
+        // Soft Delete (Archive)
+        await archiveTask({ id: task._id });
+        await updateGoalProgress({ id: goalId });
+        toast.success("Task removed from list");
+    }
   };
 
   const handlePriorityChange = async (
@@ -96,7 +106,8 @@ export function TaskItem({
       <div
         className={cn(
           "glass-card rounded-xl p-4 transition-all group animate-scale-in",
-          task.completed && "opacity-60"
+          task.completed && "opacity-60",
+          task.isArchived && "opacity-40 grayscale" // Visual cue for archived tasks
         )}
         style={style}
       >
@@ -105,11 +116,12 @@ export function TaskItem({
           <button
             onClick={handleToggle}
             className="mt-0.5 shrink-0 transition-transform hover:scale-110"
+            disabled={task.isArchived} // Disable toggling if archived
           >
             {task.completed ? (
               <CheckCircle2
                 className="w-6 h-6"
-                style={{ color: goalColor }}
+                style={{ color: task.isArchived ? "gray" : goalColor }}
               />
             ) : (
               <Circle
@@ -129,6 +141,11 @@ export function TaskItem({
                   )}
                 >
                   {task.title}
+                  {task.isArchived && (
+                    <span className="ml-2 text-xs bg-secondary px-1.5 py-0.5 rounded text-muted-foreground no-underline">
+                      Archived
+                    </span>
+                  )}
                 </p>
                 {task.description && (
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -138,67 +155,66 @@ export function TaskItem({
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1">
-                {/* Focus Button (Only for incomplete tasks) */}
-                {!task.completed && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                    onClick={() => setIsFocusOpen(true)}
-                    title="Start Focus Session"
+                    className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
                   >
-                    <PlayCircle className="w-4 h-4" />
+                    <MoreHorizontal className="w-4 h-4" />
                   </Button>
-                )}
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
-                      <Pencil className="w-4 h-4" /> Edit Task
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handlePriorityChange("high")}
-                      className="gap-2"
-                    >
-                      <Flag className="w-4 h-4 text-red-500" />
-                      High Priority
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handlePriorityChange("medium")}
-                      className="gap-2"
-                    >
-                      <Flag className="w-4 h-4 text-yellow-500" />
-                      Medium Priority
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handlePriorityChange("low")}
-                      className="gap-2"
-                    >
-                      <Flag className="w-4 h-4 text-green-500" />
-                      Low Priority
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="gap-2 text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete Task
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {!task.isArchived && (
+                    <>
+                      <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                        <Pencil className="w-4 h-4" /> Edit Task
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handlePriorityChange("high")}
+                        className="gap-2"
+                      >
+                        <Flag className="w-4 h-4 text-red-500" />
+                        High Priority
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePriorityChange("medium")}
+                        className="gap-2"
+                      >
+                        <Flag className="w-4 h-4 text-yellow-500" />
+                        Medium Priority
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePriorityChange("low")}
+                        className="gap-2"
+                      >
+                        <Flag className="w-4 h-4 text-green-500" />
+                        Low Priority
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="gap-2 text-destructive focus:text-destructive"
+                  >
+                    {isHardDelete ? (
+                        <>
+                            <Trash2 className="w-4 h-4" />
+                            Delete Permanently
+                        </>
+                    ) : (
+                        <>
+                            <Archive className="w-4 h-4" />
+                            Delete
+                        </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Meta Info */}
@@ -248,17 +264,16 @@ export function TaskItem({
               {task.estimatedTime && (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground">
                   <Clock className="w-3 h-3" />
-                  {task.estimatedTime}
+                  Est: {task.estimatedTime}
                 </span>
               )}
-
-              {/* Actual Time Display */}
-              {task.actualTime ? (
+              
+              {task.actualTime && (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary">
-                  <Hourglass className="w-3 h-3" />
-                  {task.actualTime}m focused
+                  <Clock className="w-3 h-3" />
+                  Act: {task.actualTime}
                 </span>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
@@ -270,16 +285,6 @@ export function TaskItem({
         userId={task.userId}
         mode="edit"
         initialData={task}
-      />
-
-      {/* Focus Timer Dialog */}
-      <FocusTimerDialog
-        taskId={task._id}
-        userId={task.userId} // Passing the required User ID
-        taskTitle={task.title}
-        estimatedTime={task.estimatedTime} // Passing estimated time
-        isOpen={isFocusOpen}
-        onOpenChange={setIsFocusOpen}
       />
     </>
   );

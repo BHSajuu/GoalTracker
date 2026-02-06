@@ -101,7 +101,7 @@ export default function GoalDetailPage({
     : null;
 
   return (
-    <div className="space-y-8 pb-20 lg:pb-8 max-w-400 mx-auto">
+    <div className="space-y-5 pb-20 lg:pb-8 max-w-400 mx-auto">
       {/* Dynamic Background Glow */}
       <div 
         className="fixed top-20 right-0 -z-10 w-125 h-125 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-1000"
@@ -143,9 +143,9 @@ export default function GoalDetailPage({
                     style={{ background: `linear-gradient(90deg, ${goal.color}, ${goal.color}22)` }} 
                 />
                 
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-4 flex-1">
+                        <div className="flex items-center gap-4">
                             <span
                                 className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase"
                                 style={{
@@ -174,11 +174,11 @@ export default function GoalDetailPage({
                         </p>
                     )}
 
-                    <div className="pt-6 mt-2 border-t border-border/40">
+                    <div className="pt-3 border-t border-border/40">
                         <div className="flex items-end justify-between mb-3">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground mb-1">Progress Tracker</p>
-                                <p className="text-3xl font-bold text-foreground">{goal.progress}%</p>
+                                <p className="text-xl font-bold text-foreground">{goal.progress}%</p>
                             </div>
                             <span className="text-sm font-medium text-muted-foreground mb-1">
                                 {completedTasks} of {tasks.length} tasks completed
@@ -244,6 +244,7 @@ export default function GoalDetailPage({
                                         task={task}
                                         goalColor={goal.color}
                                         goalId={goal._id}
+                                        isHardDelete={true}
                                     />
                                 ))}
                         </div>

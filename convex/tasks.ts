@@ -10,6 +10,7 @@ export const create = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
+    actualTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tasks", {
@@ -21,6 +22,8 @@ export const create = mutation({
       priority: args.priority,
       dueDate: args.dueDate,
       estimatedTime: args.estimatedTime,
+      actualTime: args.actualTime ? parseInt(args.actualTime) : 0,
+      isArchived: false,
       createdAt: Date.now(),
     });
   },
@@ -29,16 +32,19 @@ export const create = mutation({
 export const getByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
+    // Only show non-archived tasks on the main list
+    return tasks.filter((t) => !t.isArchived);
   },
 });
 
 export const getByGoal = query({
   args: { goalId: v.id("goals") },
   handler: async (ctx, args) => {
+    // Show ALL tasks (active + archived) for the Goal History view
     return await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.goalId))
@@ -60,6 +66,7 @@ export const getTodayTasks = query({
       .collect();
 
     return allTasks.filter((task) => {
+      if (task.isArchived) return false;
       if (!task.dueDate) return false;
       return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
     });
@@ -80,6 +87,7 @@ export const getUpcomingTasks = query({
       .collect();
 
     return allTasks.filter((task) => {
+      if (task.isArchived) return false;
       if (!task.dueDate) return false;
       return task.dueDate >= today.getTime() && task.dueDate < endDate.getTime();
     });
@@ -95,10 +103,11 @@ export const update = mutation({
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
+    actualTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
-    const filteredUpdates = Object.fromEntries(
+    const filteredUpdates: any = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     );
 
@@ -126,6 +135,15 @@ export const toggleComplete = mutation({
   },
 });
 
+// Soft Delete (Archive)
+export const archive = mutation({
+  args: { id: v.id("tasks") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { isArchived: true });
+  },
+});
+
+// Hard Delete (Permanent)
 export const remove = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
@@ -141,6 +159,8 @@ export const getStats = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
+    // Stats include archived tasks to preserve history
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const weekAgo = new Date(today);
@@ -152,31 +172,25 @@ export const getStats = query({
       .map((t) => new Date(t.completedAt!).setHours(0, 0, 0, 0))
       .sort((a, b) => b - a); // Descending
 
-    // Get unique days where at least one task was completed
     const uniqueDays = Array.from(new Set(completedTasksWithDates));
 
     let currentStreak = 0;
     const todayTime = today.getTime();
     const yesterdayTime = new Date(today).setDate(today.getDate() - 1);
-    
-    // Check if the streak is active (completed something today or yesterday)
+
     const hasCompletedToday = uniqueDays.includes(todayTime);
     const hasCompletedYesterday = uniqueDays.includes(yesterdayTime);
-    
+
     if (hasCompletedToday || hasCompletedYesterday) {
-        // Start counting
-        // If we did something today, start from today. If not, start from yesterday.
-        let checkDate = hasCompletedToday ? todayTime : yesterdayTime;
-        
-        for (const day of uniqueDays) {
-            if (day === checkDate) {
-                currentStreak++;
-                // Move checkDate to previous day
-                const d = new Date(checkDate);
-                d.setDate(d.getDate() - 1);
-                checkDate = d.getTime();
-            } 
+      let checkDate = hasCompletedToday ? todayTime : yesterdayTime;
+      for (const day of uniqueDays) {
+        if (day === checkDate) {
+          currentStreak++;
+          const d = new Date(checkDate);
+          d.setDate(d.getDate() - 1);
+          checkDate = d.getTime();
         }
+      }
     }
     // Streak Calculation End
 
@@ -188,9 +202,9 @@ export const getStats = query({
     ).length;
 
     const totalCompleted = tasks.filter((task) => task.completed).length;
-    const totalPending = tasks.filter((task) => !task.completed).length;
+    // For pending, we exclude archived
+    const totalPending = tasks.filter((task) => !task.completed && !task.isArchived).length;
 
-    // Get daily completion data for the last 7 days
     const dailyData = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
@@ -213,13 +227,13 @@ export const getStats = query({
     }
 
     return {
-      totalTasks: tasks.length,
+      totalTasks: tasks.filter(t => !t.isArchived).length,
       totalCompleted,
       totalPending,
       completedThisWeek,
       dailyData,
-      currentStreak, 
-      activeDays: uniqueDays, 
+      currentStreak,
+      activeDays: uniqueDays,
     };
   },
 });

@@ -37,6 +37,7 @@ export default defineSchema({
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
     actualTime: v.optional(v.number()), 
+    isArchived: v.optional(v.boolean()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
