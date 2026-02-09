@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { CalendarClock, ArrowRight, CheckCircle2, GripVertical, AlertCircle } from "lucide-react";
+import { CalendarClock, ArrowRight, CheckCircle2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ interface PlanDayDialogProps {
   userId: Id<"users">;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onPlanComplete: () => void; // New callback to switch tabs
+  onPlanComplete: () => void; 
 }
 
 export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: PlanDayDialogProps) {
@@ -119,7 +119,7 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl h-[95vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <CalendarClock className="w-6 h-6 text-primary" />
@@ -130,9 +130,9 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-6 py-4 overflow-hidden">
+        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
           {/* Time Input */}
-          <div className="flex flex-col gap-4 p-4 bg-secondary/30 rounded-xl border border-border shrink-0">
+          <div className="flex flex-col gap-3 px-4 py-3 bg-secondary/30 rounded-xl border border-border shrink-0">
             <div className="flex justify-between items-center">
               <Label className="text-base font-medium">Available Time Today</Label>
               <div className="text-right">
@@ -150,7 +150,7 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
               value={availableHours}
               onChange={(e) => {
                 setAvailableHours(parseFloat(e.target.value));
-                setHasManualChanges(false); // Reset to AI suggestions when slider moves
+                setHasManualChanges(false);
               }}
               className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
             />

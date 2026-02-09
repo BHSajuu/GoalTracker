@@ -267,13 +267,6 @@ export function TaskItem({
                   Est: {task.estimatedTime}
                 </span>
               )}
-              
-              {task.actualTime && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary">
-                  <Clock className="w-3 h-3" />
-                  Act: {task.actualTime}
-                </span>
-              )}
             </div>
           </div>
         </div>

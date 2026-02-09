@@ -36,7 +36,6 @@ export default defineSchema({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
-    actualTime: v.optional(v.number()), 
     isArchived: v.optional(v.boolean()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),

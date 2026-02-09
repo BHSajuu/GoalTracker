@@ -10,7 +10,6 @@ export const create = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
-    actualTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tasks", {
@@ -22,7 +21,6 @@ export const create = mutation({
       priority: args.priority,
       dueDate: args.dueDate,
       estimatedTime: args.estimatedTime,
-      actualTime: args.actualTime ? parseInt(args.actualTime) : 0,
       isArchived: false,
       createdAt: Date.now(),
     });
@@ -103,7 +101,6 @@ export const update = mutation({
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
-    actualTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
