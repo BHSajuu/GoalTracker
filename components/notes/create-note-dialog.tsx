@@ -16,7 +16,7 @@ export function CreateNoteDialog({ userId, goalId }: CreateNoteDialogProps) {
 
   return (
     <>
-      <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
+      <Button size="sm" className="gap-2 rounded-3xl" onClick={() => setOpen(true)}>
         <Plus className="w-4 h-4" /> Add Note
       </Button>
 

@@ -36,6 +36,7 @@ export default defineSchema({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.string()),
+    isArchived: v.optional(v.boolean()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
@@ -43,15 +44,25 @@ export default defineSchema({
     .index("by_goal", ["goalId"])
     .index("by_user_and_date", ["userId", "dueDate"]),
 
-
   notes: defineTable({
     userId: v.id("users"),
     goalId: v.id("goals"),
     type: v.union(v.literal("text"), v.literal("image"), v.literal("link")),
-    content: v.optional(v.string()), // Text content, Link URL, or legacy Image URL
-    images: v.optional(v.array(v.string())), // Array of Storage IDs or URLs
+    content: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
     createdAt: v.number(),
   })
     .index("by_goal", ["goalId"])
     .index("by_user", ["userId"]),
+    
+  focusSessions: defineTable({
+    userId: v.id("users"),
+    taskId: v.id("tasks"),
+    startTime: v.number(),
+    endTime: v.optional(v.number()),
+    duration: v.number(), // In minutes
+    status: v.union(v.literal("completed"), v.literal("interrupted")),
+  })
+  .index("by_user", ["userId"])
+  .index("by_task", ["taskId"]),
 });

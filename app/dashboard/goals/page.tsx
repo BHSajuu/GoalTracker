@@ -68,7 +68,7 @@ export default function GoalsPage() {
         </div>
         <Button
           onClick={() => setIsCreateOpen(true)}
-          className="gap-2 bg-primary hover:bg-primary/90 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.3)] transition-all"
+          className="gap-2 bg-primary rounded-3xl hover:bg-primary/90 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.3)] transition-all"
         >
           <Plus className="w-4 h-4" />
           New Goal
