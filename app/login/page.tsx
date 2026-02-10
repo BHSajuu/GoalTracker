@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { AuthForm } from "@/components/auth/auth-form";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
   const { userId, isLoading } = useAuth();
@@ -25,6 +28,17 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-background grid-pattern relative overflow-hidden">
+      <div className="absolute top-4 left-4 md:top-8 md:left-8 z-20 animate-fade-in">
+        <Link href="/">
+          <Button 
+            variant="link" 
+            className="gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-300 group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Home
+          </Button>
+        </Link>
+      </div>
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-float" />
