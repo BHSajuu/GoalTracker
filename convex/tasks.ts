@@ -9,7 +9,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
-    estimatedTime: v.optional(v.string()),
+    estimatedTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tasks", {
@@ -21,6 +21,7 @@ export const create = mutation({
       priority: args.priority,
       dueDate: args.dueDate,
       estimatedTime: args.estimatedTime,
+      actualTime: 0,
       isArchived: false,
       createdAt: Date.now(),
     });
@@ -100,7 +101,7 @@ export const update = mutation({
     completed: v.optional(v.boolean()),
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     dueDate: v.optional(v.number()),
-    estimatedTime: v.optional(v.string()),
+    estimatedTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -145,6 +146,70 @@ export const remove = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+  },
+});
+
+// Save a focus session and update the total actual time for the task
+export const saveFocusSession = mutation({
+  args: {
+    userId: v.id("users"),
+    taskId: v.id("tasks"),
+    startTime: v.number(),
+    endTime: v.number(),
+    duration: v.number(), // In minutes
+    status: v.union(v.literal("completed"), v.literal("interrupted")),
+  },
+  handler: async (ctx, args) => {
+    // Log the individual session
+    await ctx.db.insert("focusSessions", {
+      userId: args.userId,
+      taskId: args.taskId,
+      startTime: args.startTime,
+      endTime: args.endTime,
+      duration: args.duration,
+      status: args.status,
+    });
+
+    //  Aggregate this time into the task's 'actualTime'
+    const task = await ctx.db.get(args.taskId);
+    if (task) {
+      const currentActual = task.actualTime || 0;
+      await ctx.db.patch(args.taskId, {
+        actualTime: currentActual + args.duration,
+      });
+    }
+  },
+});
+
+// Query for the Efficiency Line Chart
+export const getEfficiencyStats = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Filter for completed tasks that have both estimated and actual time recorded
+    const completedTasks = tasks.filter(
+      (t) => 
+        t.completed && 
+        t.completedAt &&
+        t.estimatedTime !== undefined && 
+        t.estimatedTime > 0 &&
+        t.actualTime !== undefined
+    );
+
+    // Sort by completion date (oldest to newest) to show progression over time
+    const sortedTasks = completedTasks.sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
+
+    // Format for Recharts
+    return sortedTasks.map((t) => ({
+      name: t.title, // X-Axis Label
+      estimated: t.estimatedTime,
+      actual: t.actualTime,
+      completedAt: t.completedAt,
+    }));
   },
 });
 

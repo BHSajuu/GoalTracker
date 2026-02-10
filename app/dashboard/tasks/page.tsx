@@ -33,8 +33,6 @@ export default function TasksPage() {
   const searchParams = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
-
-  // Filters & Tabs
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [goalFilter, setGoalFilter] = useState<string>("all");
@@ -49,7 +47,6 @@ export default function TasksPage() {
     }
   }, [searchParams]);
 
-  // Helper: Goal Data
   const getGoalColor = (goalId: string) => goals?.find((g) => g._id === goalId)?.color || "#00d4ff";
   const getGoalTitle = (goalId: string) => goals?.find((g) => g._id === goalId)?.title || "Unknown Goal";
 

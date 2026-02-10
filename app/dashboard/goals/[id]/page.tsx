@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react"
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,16 +17,13 @@ import {
   Plus,
   Calendar,
   Target,
-  Edit2,
   Trash2,
-  CheckCircle2,
   ListTodo,
   Clock,
   Trophy,
   AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 export default function GoalDetailPage({
   params,

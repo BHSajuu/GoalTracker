@@ -1,21 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { Doc, Id } from "./_generated/dataModel";
-
-// Helper to parse "2h", "30m" into minutes
-function parseDuration(timeStr?: string): number {
-  if (!timeStr) return 30; // Default assumption if no time set
-  const str = timeStr.toLowerCase().trim();
-  
-  // Extract number
-  const match = str.match(/^(\d+(\.\d+)?)/);
-  if (!match) return 30;
-  
-  const value = parseFloat(match[1]);
-  if (str.includes("h")) return Math.round(value * 60);
-  if (str.includes("m")) return Math.round(value);
-  return 30; // Fallback
-}
+import { Doc } from "./_generated/dataModel";
 
 export const getSuggestion = query({
   args: { 
@@ -56,7 +41,8 @@ export const getSuggestion = query({
     const overflow: Doc<"tasks">[] = [];
 
     for (const task of sorted) {
-      const duration = parseDuration(task.estimatedTime);
+      // default to 30 mins if undefined
+      const duration = task.estimatedTime || 30;
       
       if (currentMinutes + duration <= args.availableMinutes) {
         planned.push(task);
@@ -66,20 +52,24 @@ export const getSuggestion = query({
       }
     }
 
+    // Helper for stats
+    const sumDuration = (taskList: Doc<"tasks">[]) => 
+      taskList.reduce((sum, t) => sum + (t.estimatedTime || 30), 0);
+
     return {
       planned,
       overflow,
       stats: {
         totalTasks: relevantTasks.length,
-        totalMinutes: currentMinutes + overflow.reduce((sum, t) => sum + parseDuration(t.estimatedTime), 0),
-        plannedMinutes: currentMinutes,
-        overflowMinutes: overflow.reduce((sum, t) => sum + parseDuration(t.estimatedTime), 0)
+        totalMinutes: sumDuration(planned) + sumDuration(overflow),
+        plannedMinutes: sumDuration(planned),
+        overflowMinutes: sumDuration(overflow)
       }
     };
   }
 });
 
-// NEW: Commit the plan (updates both Today and Tomorrow lists)
+// Commit the plan (updates both Today and Tomorrow lists)
 export const commitPlan = mutation({
   args: {
     todayIds: v.array(v.id("tasks")),

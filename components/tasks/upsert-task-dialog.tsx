@@ -37,7 +37,7 @@ interface UpsertTaskDialogProps {
     description?: string;
     priority: "low" | "medium" | "high";
     dueDate?: number;
-    estimatedTime?: string;
+    estimatedTime?: number; 
     goalId?: Id<"goals">;
   };
 }
@@ -55,7 +55,10 @@ export function UpsertTaskDialog({
   const [goalId, setGoalId] = useState<string>("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
-  const [estimatedTime, setEstimatedTime] = useState("");
+  
+  const [estHours, setEstHours] = useState("");
+  const [estMinutes, setEstMinutes] = useState("");
+  
   const [isLoading, setIsLoading] = useState(false);
 
   const goals = useQuery(api.goals.getByUser, { userId });
@@ -69,16 +72,27 @@ export function UpsertTaskDialog({
         setTitle(initialData.title);
         setDescription(initialData.description || "");
         setPriority(initialData.priority);
-        // Convert timestamp to YYYY-MM-DD for input
         setDueDate(initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "");
-        setEstimatedTime(initialData.estimatedTime || "");
         setGoalId(initialData.goalId || "");
+
+        // Convert stored minutes back to H:M
+        if (initialData.estimatedTime) {
+          const h = Math.floor(initialData.estimatedTime / 60);
+          const m = initialData.estimatedTime % 60;
+          setEstHours(h > 0 ? h.toString() : "");
+          setEstMinutes(m > 0 ? m.toString() : "");
+        } else {
+          setEstHours("");
+          setEstMinutes("");
+        }
+
       } else if (mode === "create") {
         setTitle("");
         setDescription("");
         setPriority("medium");
         setDueDate("");
-        setEstimatedTime("");
+        setEstHours("");
+        setEstMinutes("");
         setGoalId(preselectedGoalId || "");
       }
     }
@@ -91,12 +105,17 @@ export function UpsertTaskDialog({
 
     setIsLoading(true);
     try {
+      // Calculate total minutes
+      const h = parseInt(estHours) || 0;
+      const m = parseInt(estMinutes) || 0;
+      const totalMinutes = (h * 60) + m;
+
       const commonData = {
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
         dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
-        estimatedTime: estimatedTime.trim() || undefined,
+        estimatedTime: totalMinutes > 0 ? totalMinutes : undefined,
       };
 
       if (mode === "create") {
@@ -159,7 +178,7 @@ export function UpsertTaskDialog({
             />
           </div>
 
-          {/* Goal Selection (Disabled in Edit Mode) */}
+          {/* Goal Selection */}
           {mode === "create" && (
             <div className="space-y-2">
               <Label htmlFor="goal">Goal</Label>
@@ -258,18 +277,40 @@ export function UpsertTaskDialog({
               />
             </div>
 
-            {/* Estimated Time (New Field) */}
-            <div className="space-y-2 col-span-2 md:col-span-2">
-               <Label htmlFor="estimatedTime" className="flex items-center gap-2">
+            {/* UPDATED: Estimated Time (Hours & Minutes) */}
+            <div className="space-y-2 col-span-2">
+               <Label className="flex items-center gap-2">
                  <Clock className="w-3 h-3" /> Estimated Time
                </Label>
-               <Input
-                 id="estimatedTime"
-                 placeholder="e.g., 2 hours, 30m"
-                 value={estimatedTime}
-                 onChange={(e) => setEstimatedTime(e.target.value)}
-                 className="bg-secondary/50 border-border"
-               />
+               <div className="flex gap-2">
+                 <div className="relative flex-1">
+                   <Input
+                     type="number"
+                     min="0"
+                     placeholder="0"
+                     value={estHours}
+                     onChange={(e) => setEstHours(e.target.value)}
+                     className="bg-secondary/50 border-border pr-12"
+                   />
+                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none">
+                     hours
+                   </span>
+                 </div>
+                 <div className="relative flex-1">
+                   <Input
+                     type="number"
+                     min="0"
+                     max="59"
+                     placeholder="0"
+                     value={estMinutes}
+                     onChange={(e) => setEstMinutes(e.target.value)}
+                     className="bg-secondary/50 border-border pr-12"
+                   />
+                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none">
+                     mins
+                   </span>
+                 </div>
+               </div>
             </div>
           </div>
 

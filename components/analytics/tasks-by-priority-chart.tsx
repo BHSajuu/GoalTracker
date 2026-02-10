@@ -10,7 +10,7 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer } from "@/components/ui/chart";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Flag } from "lucide-react";
 

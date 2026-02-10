@@ -26,6 +26,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpsertTaskDialog } from "./upsert-task-dialog";
+import { FocusTimer } from "./focus-timer";
+import Image from "next/image";
 
 interface TaskItemProps {
   task: Doc<"tasks">;
@@ -34,7 +36,7 @@ interface TaskItemProps {
   goalTitle?: string;
   showGoalInfo?: boolean;
   style?: React.CSSProperties;
-  isHardDelete?: boolean; // NEW PROP
+  isHardDelete?: boolean;
 }
 
 export function TaskItem({
@@ -44,14 +46,15 @@ export function TaskItem({
   goalTitle,
   showGoalInfo,
   style,
-  isHardDelete = false, // Default to Soft Delete
+  isHardDelete = false,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
-  const removeTask = useMutation(api.tasks.remove); // Hard Delete
-  const archiveTask = useMutation(api.tasks.archive); // Soft Delete
+  const removeTask = useMutation(api.tasks.remove);
+  const archiveTask = useMutation(api.tasks.archive);
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
@@ -61,17 +64,15 @@ export function TaskItem({
 
   const handleDelete = async () => {
     if (isHardDelete) {
-        // Permanent Delete
-        if(confirm("This will permanently delete the task. Continue?")) {
-            await removeTask({ id: task._id });
-            await updateGoalProgress({ id: goalId });
-            toast.success("Task permanently deleted");
-        }
-    } else {
-        // Soft Delete (Archive)
-        await archiveTask({ id: task._id });
+      if (confirm("This will permanently delete the task. Continue?")) {
+        await removeTask({ id: task._id });
         await updateGoalProgress({ id: goalId });
-        toast.success("Task removed from list");
+        toast.success("Task permanently deleted");
+      }
+    } else {
+      await archiveTask({ id: task._id });
+      await updateGoalProgress({ id: goalId });
+      toast.success("Task removed from list");
     }
   };
 
@@ -101,13 +102,22 @@ export function TaskItem({
     }
   };
 
+  const formatDuration = (minutes?: number) => {
+    if (!minutes) return null;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  };
+
   return (
     <>
       <div
         className={cn(
-          "glass-card rounded-xl p-4 transition-all group animate-scale-in",
+          "glass-card rounded-xl p-4 transition-all shadow-lg hover:shadow-blue-300/30 hover:scale-102 transition-all duration-400 ease-in-out",
           task.completed && "opacity-60",
-          task.isArchived && "opacity-40 grayscale" // Visual cue for archived tasks
+          task.isArchived && "opacity-40 grayscale"
         )}
         style={style}
       >
@@ -116,7 +126,7 @@ export function TaskItem({
           <button
             onClick={handleToggle}
             className="mt-0.5 shrink-0 transition-transform hover:scale-110"
-            disabled={task.isArchived} // Disable toggling if archived
+            disabled={task.isArchived}
           >
             {task.completed ? (
               <CheckCircle2
@@ -155,66 +165,73 @@ export function TaskItem({
               </div>
 
               {/* Actions */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {!task.isArchived && (
-                    <>
-                      <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
-                        <Pencil className="w-4 h-4" /> Edit Task
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handlePriorityChange("high")}
-                        className="gap-2"
-                      >
-                        <Flag className="w-4 h-4 text-red-500" />
-                        High Priority
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handlePriorityChange("medium")}
-                        className="gap-2"
-                      >
-                        <Flag className="w-4 h-4 text-yellow-500" />
-                        Medium Priority
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handlePriorityChange("low")}
-                        className="gap-2"
-                      >
-                        <Flag className="w-4 h-4 text-green-500" />
-                        Low Priority
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="gap-2 text-destructive focus:text-destructive"
-                  >
-                    {isHardDelete ? (
-                        <>
-                            <Trash2 className="w-4 h-4" />
-                            Delete Permanently
-                        </>
-                    ) : (
-                        <>
-                            <Archive className="w-4 h-4" />
-                            Delete
-                        </>
+              <div className="flex items-center gap-1">
+
+                {!task.completed && !task.isArchived && (
+                  <Image src="/timer.png" alt="Focus" width={20} height={20} onClick={() => setIsFocusMode(true)} className="cursor-pointer"/>
+                )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {!task.isArchived && (
+                      <>
+                        <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                          <Pencil className="w-4 h-4" /> Edit Task
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handlePriorityChange("high")}
+                          className="gap-2"
+                        >
+                          <Flag className="w-4 h-4 text-red-500" />
+                          High Priority
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePriorityChange("medium")}
+                          className="gap-2"
+                        >
+                          <Flag className="w-4 h-4 text-yellow-500" />
+                          Medium Priority
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePriorityChange("low")}
+                          className="gap-2"
+                        >
+                          <Flag className="w-4 h-4 text-green-500" />
+                          Low Priority
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
                     )}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      {isHardDelete ? (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Delete Permanently
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="w-4 h-4" />
+                          Delete
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             {/* Meta Info */}
@@ -261,10 +278,17 @@ export function TaskItem({
                 </span>
               )}
 
-              {task.estimatedTime && (
+              {task.estimatedTime !== undefined && (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground">
                   <Clock className="w-3 h-3" />
-                  Est: {task.estimatedTime}
+                  Est: {formatDuration(task.estimatedTime)}
+                </span>
+              )}
+
+              {task.actualTime !== undefined && task.actualTime > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  <Clock className="w-3 h-3" />
+                  Actual: {formatDuration(task.actualTime)}
                 </span>
               )}
             </div>
@@ -278,6 +302,12 @@ export function TaskItem({
         userId={task.userId}
         mode="edit"
         initialData={task}
+      />
+
+      <FocusTimer
+        isOpen={isFocusMode}
+        onOpenChange={setIsFocusMode}
+        task={task}
       />
     </>
   );
