@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description:
     "A futuristic goal tracking platform for ambitious students. Track goals, manage tasks, and achieve your dreams.",
   icons: {
-    icon: "logo.png",
+    icon: "/logo.png",
   },
 };
 

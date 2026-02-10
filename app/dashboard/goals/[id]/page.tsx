@@ -143,7 +143,7 @@ export default function GoalDetailPage({
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <span
-                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase"
+                                className="inline-flex items-center px-3 py-1 rounded-full text-xs md:font-semibold tracking-wide"
                                 style={{
                                     backgroundColor: `${goal.color}15`,
                                     color: goal.color,
@@ -152,7 +152,7 @@ export default function GoalDetailPage({
                             >
                                 {goal.category}
                             </span>
-                            <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                            <h1 className="text-lg md:text-2xl font-bold text-foreground leading-tight">
                                 {goal.title}
                             </h1>
                         </div>
@@ -165,7 +165,7 @@ export default function GoalDetailPage({
                     </div>
 
                     {goal.description && (
-                        <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                        <p className="text-xs md:text-lg text-muted-foreground leading-relaxed max-w-2xl">
                             {goal.description}
                         </p>
                     )}
@@ -226,7 +226,7 @@ export default function GoalDetailPage({
                             </Button>
                         </div>
                     ) : (
-                        <div className="space-y-2 p-2">
+                        <div className="space-y-6 p-2">
                             {tasks
                                 .sort((a, b) => {
                                     if (a.completed !== b.completed) {

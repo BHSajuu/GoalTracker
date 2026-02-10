@@ -22,8 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckSquare, Target, Clock } from "lucide-react";
+import {
+  Loader2, CheckSquare, Target, Clock,
+  CalendarDays, AlignLeft, AlertCircle, LayoutList
+} from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface UpsertTaskDialogProps {
   open: boolean;
@@ -37,7 +42,7 @@ interface UpsertTaskDialogProps {
     description?: string;
     priority: "low" | "medium" | "high";
     dueDate?: number;
-    estimatedTime?: number; 
+    estimatedTime?: number;
     goalId?: Id<"goals">;
   };
 }
@@ -50,17 +55,19 @@ export function UpsertTaskDialog({
   preselectedGoalId,
   initialData,
 }: UpsertTaskDialogProps) {
+  //  States 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [goalId, setGoalId] = useState<string>("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
-  
+
   const [estHours, setEstHours] = useState("");
   const [estMinutes, setEstMinutes] = useState("");
-  
+
   const [isLoading, setIsLoading] = useState(false);
 
+  //  Data & Mutations 
   const goals = useQuery(api.goals.getByUser, { userId });
   const createTask = useMutation(api.tasks.create);
   const updateTask = useMutation(api.tasks.update);
@@ -147,198 +154,225 @@ export function UpsertTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg glass border-border/50">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20">
-              <CheckSquare className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-foreground">
-                {mode === "create" ? "Create New Task" : "Edit Task"}
-              </DialogTitle>
-              <DialogDescription>
-                {mode === "create" ? "Add a task to help achieve your goal" : "Update task details"}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden border-border/40 bg-background/80 backdrop-blur-xl shadow-2xl">
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Task Title</Label>
-            <Input
-              id="title"
-              placeholder="e.g., Complete Chapter 5 exercises"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary/50 border-border"
-              required
-            />
-          </div>
-
-          {/* Goal Selection */}
-          {mode === "create" && (
-            <div className="space-y-2">
-              <Label htmlFor="goal">Goal</Label>
-              {activeGoals.length === 0 ? (
-                <div className="p-4 rounded-xl bg-secondary/30 text-center">
-                  <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No active goals. Create a goal first.
-                  </p>
-                </div>
-              ) : (
-                <Select
-                  value={goalId}
-                  onValueChange={setGoalId}
-                  disabled={!!preselectedGoalId}
-                >
-                  <SelectTrigger className="bg-secondary/50 border-border">
-                    <SelectValue placeholder="Select a goal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeGoals.map((goal) => (
-                      <SelectItem key={goal._id} value={goal._id}>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: goal.color }}
-                          />
-                          {goal.title}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Add more details..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-secondary/50 border-border resize-none"
-              rows={2}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Priority */}
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={priority}
-                onValueChange={(v) =>
-                  setPriority(v as "low" | "medium" | "high")
-                }
+        {/* Header Section */}
+        <div className="p-6 pb-4 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <motion.div
+                initial={{ rotate: -10, scale: 0.9 }}
+                animate={{ rotate: 0, scale: 1 }}
+                className="flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner"
               >
-                <SelectTrigger className="bg-secondary/50 border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      Low
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="medium">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                      Medium
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="high">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500" />
-                      High
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                <CheckSquare className="w-6 h-6" />
+              </motion.div>
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-bold tracking-tight">
+                  {mode === "create" ? "Create New Task" : "Edit Task"}
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground/80">
+                  {mode === "create" ? "Add a specific action item to your goal." : "Update your task details and timeline."}
+                </DialogDescription>
+              </div>
             </div>
+          </DialogHeader>
+        </div>
 
-            {/* Due Date */}
+        {/* Form Section */}
+        <div className="p-6 pt-4 h-[60vh] md:h-auto overflow-y-auto custom-scrollbar">
+          <form id="task-form" onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label className="flex items-center gap-2 text-foreground/90">
+                <LayoutList className="w-4 h-4 text-muted-foreground" /> Task Title
+              </Label>
               <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="bg-secondary/50 border-border"
+                placeholder="e.g., Complete Chapter 5 exercises"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="h-11 bg-secondary/30 border-white/10 focus:border-emerald-500/50 transition-colors"
+                required
               />
             </div>
 
-            {/* UPDATED: Estimated Time (Hours & Minutes) */}
-            <div className="space-y-2 col-span-2">
-               <Label className="flex items-center gap-2">
-                 <Clock className="w-3 h-3" /> Estimated Time
-               </Label>
-               <div className="flex gap-2">
-                 <div className="relative flex-1">
-                   <Input
-                     type="number"
-                     min="0"
-                     placeholder="0"
-                     value={estHours}
-                     onChange={(e) => setEstHours(e.target.value)}
-                     className="bg-secondary/50 border-border pr-12"
-                   />
-                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none">
-                     hours
-                   </span>
-                 </div>
-                 <div className="relative flex-1">
-                   <Input
-                     type="number"
-                     min="0"
-                     max="59"
-                     placeholder="0"
-                     value={estMinutes}
-                     onChange={(e) => setEstMinutes(e.target.value)}
-                     className="bg-secondary/50 border-border pr-12"
-                   />
-                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none">
-                     mins
-                   </span>
-                 </div>
-               </div>
-            </div>
-          </div>
+            {/* Goal Selection (Only for Create Mode) */}
+            {mode === "create" && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-foreground/90">
+                  <Target className="w-4 h-4 text-muted-foreground" /> Related Goal
+                </Label>
+                {activeGoals.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+                    <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-2" />
+                    <p className="text-sm text-red-200">
+                      No active goals found. Please create a goal first.
+                    </p>
+                  </div>
+                ) : (
+                  <Select
+                    value={goalId}
+                    onValueChange={setGoalId}
+                    disabled={!!preselectedGoalId}
+                  >
+                    <SelectTrigger className="h-11 bg-secondary/30 border-white/10">
+                      <SelectValue placeholder="Select a goal..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeGoals.map((goal) => (
+                        <SelectItem key={goal._id} value={goal._id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full shadow-[0_0_8px]"
+                              style={{
+                                backgroundColor: goal.color,
+                                boxShadow: `0 0 8px ${goal.color}`
+                              }}
+                            />
+                            {goal.title}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-border"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isLoading || !title.trim() || (mode === "create" && !goalId)
-              }
-              className="gap-2"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                mode === "create" ? "Create Task" : "Save Changes"
-              )}
-            </Button>
-          </div>
-        </form>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-foreground/90">
+                  <AlertCircle className="w-4 h-4 text-muted-foreground" /> Priority
+                </Label>
+                <Select
+                  value={priority}
+                  onValueChange={(v) =>
+                    setPriority(v as "low" | "medium" | "high")
+                  }
+                >
+                  <SelectTrigger className="bg-secondary/30 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">
+                      <span className="flex items-center gap-2 text-emerald-400">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+                        Low
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <span className="flex items-center gap-2 text-amber-400">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
+                        Medium
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <span className="flex items-center gap-2 text-red-400">
+                        <span className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]" />
+                        High
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Due Date */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-foreground/90">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" /> Due Date
+                </Label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="bg-secondary/30 border-white/10"
+                />
+              </div>
+            </div>
+
+            {/* Estimated Time */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-foreground/90">
+                <Clock className="w-4 h-4 text-muted-foreground" /> Estimated Duration
+              </Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={estHours}
+                    onChange={(e) => setEstHours(e.target.value)}
+                    className="bg-secondary/30 border-white/10 pr-12"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
+                    hours
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    placeholder="0"
+                    value={estMinutes}
+                    onChange={(e) => setEstMinutes(e.target.value)}
+                    className="bg-secondary/30 border-white/10 pr-12"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
+                    mins
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-foreground/90">
+                <AlignLeft className="w-4 h-4 text-muted-foreground" /> Description
+              </Label>
+              <Textarea
+                placeholder="Add details, sub-steps, or notes..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="bg-secondary/30 border-white/10 resize-none min-h-[100px]"
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 pt-4 mt-auto border-t border-white/5 flex justify-end gap-3 bg-background/50 backdrop-blur-sm">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+            className="hover:bg-white/5"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="task-form"
+            disabled={
+              isLoading || !title.trim() || (mode === "create" && !goalId)
+            }
+            className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 gap-2"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <CheckSquare className="w-4 h-4" />
+                {mode === "create" ? "Create Task" : "Save Changes"}
+              </>
+            )}
+          </Button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );

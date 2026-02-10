@@ -2,11 +2,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatsCardsSkeleton() {
   return (
-    <div className="grid gap-3 md:gap-7 md:grid-cols-3">
+    // Mobile: Flex + Horizontal Scroll | Desktop: Grid
+    <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 md:grid md:gap-7 md:grid-cols-3 md:overflow-visible snap-x snap-mandatory hide-scrollbar">
       {[...Array(3)].map((_, i) => (
         <div
           key={i}
-          className="glass p-6 rounded-xl border border-border/50 flex flex-col items-center justify-center space-y-3"
+          // Added min-w-[85vw] for mobile sizing and snap-center for carousel effect
+          className="min-w-[85vw] md:min-w-0 snap-center glass p-6 rounded-xl border border-border/50 flex flex-col items-center justify-center space-y-3"
         >
           <div className="flex items-center gap-3 w-full justify-center">
             <Skeleton className="h-4 w-24" />
@@ -43,14 +45,14 @@ export function StreakCalendarSkeleton() {
   return (
     <div className="rounded-lg border-2 border-border/50 p-3 h-[320px] w-full max-w-[300px] flex flex-col gap-4">
       <div className="flex justify-between items-center px-2">
-         <Skeleton className="h-4 w-4" />
-         <Skeleton className="h-4 w-24" />
-         <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-4" />
       </div>
       <div className="grid grid-cols-7 gap-2 mt-2">
-          {[...Array(35)].map((_, i) => (
-              <Skeleton key={i} className="h-8 w-8 rounded-md" />
-          ))}
+        {[...Array(35)].map((_, i) => (
+          <Skeleton key={i} className="h-8 w-8 rounded-md" />
+        ))}
       </div>
     </div>
   );
@@ -110,7 +112,7 @@ export function DashboardSkeleton() {
     <div className="space-y-8 pb-24 lg:pb-8">
       {/* Top Section: Welcome + Stats/Actions + Calendar */}
       <div className="flex flex-col xl:flex-row gap-8 xl:gap-16">
-        
+
         {/* Left Column */}
         <div className="flex-1 flex flex-col gap-8">
           {/* Welcome Text */}
@@ -127,7 +129,7 @@ export function DashboardSkeleton() {
 
         {/* Right Column: Calendar */}
         <div className="xl:pt-20 w-full xl:w-auto flex justify-center xl:block">
-           <StreakCalendarSkeleton />
+          <StreakCalendarSkeleton />
         </div>
       </div>
 

@@ -26,6 +26,59 @@ export const create = mutation({
   },
 });
 
+export const createGoalWithTasks = mutation({
+  args: {
+    userId: v.id("users"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    category: v.string(),
+    color: v.string(),
+    targetDate: v.number(),
+    tasks: v.array(
+      v.object({
+        title: v.string(),
+        description: v.optional(v.string()),
+        priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+        estimatedTime: v.number(),
+        dueDateOffset: v.number(), // We receive offset (e.g., day 1, day 5)
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { tasks, ...goalData } = args;
+
+    // 1. Create the Goal
+    const goalId = await ctx.db.insert("goals", {
+      ...goalData,
+      status: "active",
+      progress: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      targetDate: goalData.targetDate,
+    });
+
+    // 2. Create the Tasks
+    const now = Date.now();
+    const dayInMillis = 24 * 60 * 60 * 1000;
+
+    for (const task of tasks) {
+      await ctx.db.insert("tasks", {
+        userId: args.userId,
+        goalId: goalId,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        estimatedTime: task.estimatedTime,
+        dueDate: now + (task.dueDateOffset * dayInMillis), // Calculate actual date
+        completed: false,
+        createdAt: now,
+      });
+    }
+
+    return goalId;
+  },
+});
+
 export const getByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -59,7 +112,7 @@ export const update = mutation({
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     );
-    
+
     return await ctx.db.patch(id, {
       ...filteredUpdates,
       updatedAt: Date.now(),
@@ -82,12 +135,12 @@ export const remove = mutation({
 
     // Delete all notes associated with this goal
     const notes = await ctx.db
-        .query("notes")
-        .withIndex("by_goal", (q) => q.eq("goalId", args.id))
-        .collect();
-    
+      .query("notes")
+      .withIndex("by_goal", (q) => q.eq("goalId", args.id))
+      .collect();
+
     for (const note of notes) {
-        await ctx.db.delete(note._id);
+      await ctx.db.delete(note._id);
     }
 
     // Delete the goal
@@ -111,8 +164,8 @@ export const updateProgress = mutation({
     const completedTasks = tasks.filter((task) => task.completed).length;
     const progress = Math.round((completedTasks / tasks.length) * 100);
 
-    await ctx.db.patch(args.id, { 
-      progress, 
+    await ctx.db.patch(args.id, {
+      progress,
       updatedAt: Date.now()
     });
 
