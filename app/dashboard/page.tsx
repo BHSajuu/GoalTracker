@@ -9,12 +9,14 @@ import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { StreakCalendar } from "@/components/dashboard/streak-calendar";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
+import { ScheduleHealingAlert } from "@/components/dashboard/schedule-healing-alert";
 
 export default function DashboardPage() {
   const { userId } = useAuth();
 
   const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
   const stats = useQuery(api.tasks.getStats, userId ? { userId } : "skip");
+  const tasks = useQuery(api.tasks.getByUser, userId ? { userId } : "skip");
 
   const isLoading = goals === undefined || stats === undefined;
 
@@ -36,6 +38,8 @@ export default function DashboardPage() {
               Track your progress and achieve your goals.
             </p>
           </div>
+
+          <ScheduleHealingAlert />
 
           <div className="space-y-6">
             <StatsCards
