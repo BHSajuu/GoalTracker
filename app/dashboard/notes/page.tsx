@@ -83,7 +83,7 @@ export default function NotesPage() {
         <div className="flex-1 w-full h-full flex flex-col min-h-0">
           {selectedGoalId && userId ? (
             <>
-              <div className="flex justify-between items-center mb-4 flex-shrink-0 pr-2">
+              <div className="flex justify-between items-center md:mt-2 mb-4 flex-shrink-0 pr-2">
                 <h2 className="text-lg font-semibold">
                   {goals?.find(g => g._id === selectedGoalId)?.title} Notes
                 </h2>

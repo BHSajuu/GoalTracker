@@ -9,7 +9,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskItem } from "@/components/tasks/task-item";
 import {
@@ -24,6 +23,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { GoalDetailSkeleton } from "@/components/goals/goal-detail-skeleton";
 
 export default function GoalDetailPage({
   params,
@@ -56,21 +56,7 @@ export default function GoalDetailPage({
   };
 
   if (goal === undefined || tasks === undefined) {
-    return (
-      <div className="space-y-8 max-w-400 mx-auto pb-8">
-        <Skeleton className="h-6 w-24" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-2 space-y-6">
-               <Skeleton className="h-64 w-full rounded-3xl" />
-               <Skeleton className="h-96 w-full rounded-3xl" />
-           </div>
-           <div className="space-y-6">
-               <Skeleton className="h-40 w-full rounded-3xl" />
-               <Skeleton className="h-40 w-full rounded-3xl" />
-           </div>
-        </div>
-      </div>
-    );
+    return <GoalDetailSkeleton />;
   }
 
   if (!goal) {
@@ -198,13 +184,13 @@ export default function GoalDetailPage({
                         </div>
                         Tasks & Milestones
                     </h2>
-                    <Button
+                    <button
                         onClick={() => setIsTaskDialogOpen(true)}
-                        className="rounded-xl shadow-lg shadow-primary/20"
+            className="flex items-center bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
                     >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add New Task
-                    </Button>
+                        <Plus className="w-4 h-4" />
+                        New Task
+                    </button>
                 </div>
 
                 <div className="glass-card p-2 rounded-2xl border border-secondary/20 min-h-50">

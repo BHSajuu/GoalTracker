@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { CalendarClock, ArrowRight, CheckCircle2, GripVertical } from "lucide-react";
+import { ArrowRight, CheckCircle2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface PlanDayDialogProps {
   userId: Id<"users">;
@@ -81,7 +82,7 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
     }
   };
 
-  // --- Drag and Drop Logic ---
+  //  Drag and Drop Logic 
 
   const handleDragStart = (e: React.DragEvent, task: Doc<"tasks">, source: "planned" | "overflow") => {
     e.dataTransfer.setData("taskId", task._id);
@@ -119,10 +120,10 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl h-[95vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl h-[80vh] md:h-[95vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <CalendarClock className="w-6 h-6 text-primary" />
+            <Image src="/plan.png" alt="Plan Day" width={28} height={28} className="animate-glow-pulse" />
             Plan Your Day
           </DialogTitle>
           <DialogDescription>

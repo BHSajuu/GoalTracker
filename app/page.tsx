@@ -24,7 +24,7 @@ import Image from "next/image";
 import { PrivacyDialog } from "@/components/legal/privacy-dialog";
 import { TermsDialog } from "@/components/legal/terms-dialog";
 
-// --- Utility for Scroll Animations ---
+//  Utility for Scroll Animations 
 function useScrollAnimation() {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +47,6 @@ function useScrollAnimation() {
   return { ref, isVisible };
 }
 
-// --- Components ---
 
 const HeroVisual = () => (
   <div className="relative w-full max-w-[600px] aspect-[4/3] mx-auto perspective-1000">
@@ -99,7 +98,7 @@ const HeroVisual = () => (
     </div>
 
     {/* Floating Badge 1 */}
-    <div className="absolute -top-6 -right-6 p-4 bg-background/80 backdrop-blur border border-primary/30 rounded-2xl shadow-xl animate-float" style={{ animationDelay: '1s' }}>
+    <div className="absolute -top-6 right-1 md:-right-6 p-4 bg-background/80 backdrop-blur border border-primary/30 rounded-2xl shadow-xl animate-float" style={{ animationDelay: '1s' }}>
       <div className="flex items-center gap-3">
         <div className="p-2 bg-green-500/20 rounded-lg">
           <CheckSquare className="w-5 h-5 text-green-400" />
@@ -112,7 +111,7 @@ const HeroVisual = () => (
     </div>
 
     {/* Floating Badge 2 */}
-    <div className="absolute -bottom-8 -left-8 p-4 bg-background/80 backdrop-blur border border-accent/30 rounded-2xl shadow-xl animate-float" style={{ animationDelay: '2s' }}>
+    <div className="absolute -bottom-8 md:-left-8 p-4 bg-background/80 backdrop-blur border border-accent/30 rounded-2xl shadow-xl animate-float" style={{ animationDelay: '2s' }}>
       <div className="flex items-center gap-3">
         <div className="p-2 bg-accent/20 rounded-lg">
           <Trophy className="w-5 h-5 text-accent" />

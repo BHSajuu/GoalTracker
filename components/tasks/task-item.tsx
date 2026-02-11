@@ -21,7 +21,8 @@ import {
   Flag,
   Clock,
   Pencil,
-  Archive
+  Archive,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ export function TaskItem({
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
 
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
@@ -58,8 +60,14 @@ export function TaskItem({
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
-    await toggleComplete({ id: task._id });
-    await updateGoalProgress({ id: goalId });
+    // Prevent multiple clicks while already loading
+    if (isToggling) return;
+    setIsToggling(true);
+    try {
+      await toggleComplete({ id: task._id });
+    } finally {
+      setIsToggling(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -125,10 +133,12 @@ export function TaskItem({
           {/* Checkbox */}
           <button
             onClick={handleToggle}
-            className="mt-0.5 shrink-0 transition-transform hover:scale-110"
-            disabled={task.isArchived}
+            disabled={task.isArchived || isToggling}
+            className="mt-0.5 shrink-0 transition-transform hover:scale-110 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
-            {task.completed ? (
+            {isToggling ? (
+              <Loader2 className="w-6 h-6 animate-spin text-[#F8843F]" />
+            ) : task.completed ? (
               <CheckCircle2
                 className="w-6 h-6"
                 style={{ color: task.isArchived ? "gray" : goalColor }}
@@ -165,10 +175,10 @@ export function TaskItem({
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
 
                 {!task.completed && !task.isArchived && (
-                  <Image src="/timer.png" alt="Focus" width={20} height={20} onClick={() => setIsFocusMode(true)} className="cursor-pointer"/>
+                  <Image src="/timer2.png" alt="Focus" width={30} height={20} onClick={() => setIsFocusMode(true)} className="w-7 md:w-8  cursor-pointer" />
                 )}
 
                 <DropdownMenu>
@@ -244,10 +254,6 @@ export function TaskItem({
                     color: goalColor,
                   }}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: goalColor }}
-                  />
                   {goalTitle}
                 </span>
               )}

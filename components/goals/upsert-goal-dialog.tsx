@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import Image from "next/image";
 
 interface UpsertGoalDialogProps {
   open: boolean;
@@ -210,11 +211,11 @@ export function UpsertGoalDialog({
                 className={cn(
                   "flex items-center justify-center w-12 h-12 rounded-2xl border shadow-inner transition-colors duration-500",
                   activeTab === "ai"
-                    ? "bg-blue-600/10 border-blue-500/20 text-blue-400"
-                    : "bg-primary/10 border-primary/20 text-primary"
+                    ? "bg-blue-600/10 text-blue-400 animate-glow-pulse"
+                    : "bg-primary/10 text-primary animate-glow-pulse"
                 )}
               >
-                {activeTab === "ai" ? <Sparkles className="w-6 h-6" /> : <Target className="w-6 h-6" />}
+                {activeTab === "ai" ? <Image src="/ai3.png" alt="AI" width={30} height={30} /> : <Image src="/goal.png" alt="Goal" width={30} height={30} />}
               </motion.div>
               <div className="space-y-1">
                 <DialogTitle className="text-xl font-bold tracking-tight">
@@ -339,7 +340,7 @@ export function UpsertGoalDialog({
                         <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-blue-600/30 via-teal-500/20 to-indigo-600/30">
                           <div className="rounded-[15px] bg-background/95 backdrop-blur-xl p-6 relative overflow-hidden">
                             <h3 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2">
-                              <Bot className="w-5 h-5 text-blue-400" />
+                              <Image src="/ai.png" alt="AI Architect" width={30} height={30}   className="text-blue-400" />
                               AI Architect
                             </h3>
                             <p className="text-sm text-muted-foreground mb-4">

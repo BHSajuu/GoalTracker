@@ -24,9 +24,9 @@ import {
   Search,
   CheckSquare,
   Filter,
-  Sparkles,
-  CalendarDays
+  Sparkles
 } from "lucide-react";
+import Image from "next/image";
 
 export default function TasksPage() {
   const { userId } = useAuth();
@@ -51,33 +51,48 @@ export default function TasksPage() {
   const getGoalTitle = (goalId: string) => goals?.find((g) => g._id === goalId)?.title || "Unknown Goal";
 
   // Filtering Logic
-  const filteredTasks = tasks?.filter((task) => {
+  // 1. First, create a "Base" list that applies only the global filters (Search, Priority, Goal)
+  // This list will be used to calculate the counts for the tabs
+  const baseFilteredTasks = tasks?.filter((task) => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
     const matchesGoal = goalFilter === "all" || task.goalId === goalFilter;
+    return matchesSearch && matchesPriority && matchesGoal;
+  }) || [];
 
-    // Tab Logic
-    let matchesTab = true;
-    if (activeTab === "pending") matchesTab = !task.completed;
-    if (activeTab === "completed") matchesTab = task.completed;
+  // 2. Calculate dynamic counts based on the global filters
+  const allCount = baseFilteredTasks.length;
+  const pendingCount = baseFilteredTasks.filter((t) => !t.completed).length;
+  const completedCount = baseFilteredTasks.filter((t) => t.completed).length;
+
+  const todayCount = baseFilteredTasks.filter((task) => {
+    if (!task.dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
+  }).length;
+
+  // 3. Now apply the specific "Tab" filter for the final display list
+  const filteredTasks = baseFilteredTasks.filter((task) => {
+    if (activeTab === "pending") return !task.completed;
+    if (activeTab === "completed") return task.completed;
     if (activeTab === "today") {
-      if (!task.dueDate) matchesTab = false;
-      else {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        matchesTab = task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
-      }
+      if (!task.dueDate) return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
     }
-
-    return matchesSearch && matchesPriority && matchesGoal && matchesTab;
+    return true; // 'all' tab
   });
 
-  const sortedTasks = filteredTasks?.sort((a, b) => {
+  const sortedTasks = filteredTasks.sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
   });
 
   const handlePlanComplete = () => {
@@ -88,18 +103,6 @@ export default function TasksPage() {
     return <TasksPageSkeleton />;
   }
 
-  const pendingCount = tasks.filter((t) => !t.completed).length;
-  const completedCount = tasks.filter((t) => t.completed).length;
-
-  // Calculate Today's Count for Tab Badge
-  const todayCount = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
-  }).length;
 
   return (
     <div className="space-y-6 pb-20 lg:pb-8">
@@ -113,22 +116,22 @@ export default function TasksPage() {
             Manage your daily tasks across all goals
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-6">
           <button
             onClick={() => setIsPlanOpen(true)}
-            className="flex items-center rounded-3xl px-4 py-1.5 gap-2 text-gray-950 bg-[#10b981] hover:bg-[#10b981]/70  shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.3)] transition-all"
+            className="flex items-center bg-[#19183B] rounded-3xl px-4 py-1.5 gap-2 shadow-[0_0_25px_rgba(147,197,253,0.7)] hover:scale-95 hover:shadow-[0_0_15px_rgba(147,197,253,0.35)] transition-all duration-400 "
           >
-            <Sparkles className="w-4 h-4 animate-bounce hover:animate-none" />
+            <Image src="/pDay.png" alt="AI" width={26} height={26} className="animate-glow-pulse" />
             Plan My Day
           </button>
 
-          <Button
+          <button
             onClick={() => setIsCreateOpen(true)}
-            className="gap-2 bg-primary rounded-3xl hover:bg-primary/90 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.3)] transition-all"
+            className="flex items-center bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
           >
             <Plus className="w-4 h-4" />
             New Task
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -144,13 +147,12 @@ export default function TasksPage() {
 
           {/* Tabs List */}
           <TabsList className="bg-secondary/50 border border-border">
-            <TabsTrigger value="all">All ({tasks.length})</TabsTrigger>
-            <TabsTrigger value="today" className="gap-2">
-              <CalendarDays className="w-3 h-3" />
-              Today ({todayCount})
+            <TabsTrigger value="all">All({allCount})</TabsTrigger>
+            <TabsTrigger value="today">
+              Today({todayCount})
             </TabsTrigger>
-            <TabsTrigger value="pending">Pending ({pendingCount})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({completedCount})</TabsTrigger>
+            <TabsTrigger value="pending">Pending({pendingCount})</TabsTrigger>
+            <TabsTrigger value="completed">Completed({completedCount})</TabsTrigger>
           </TabsList>
 
           {/* Filters */}

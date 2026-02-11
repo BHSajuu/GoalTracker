@@ -66,13 +66,13 @@ export default function GoalsPage() {
             Manage and track your goals
           </p>
         </div>
-        <Button
+        <button
           onClick={() => setIsCreateOpen(true)}
-          className="gap-2 bg-primary rounded-3xl hover:bg-primary/90 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.3)] transition-all"
+          className="flex  items-center w-36 bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
         >
           <Plus className="w-4 h-4" />
           New Goal
-        </Button>
+        </button>
       </div>
 
       {/* Filters */}
@@ -119,8 +119,8 @@ export default function GoalsPage() {
       </div>
 
       {/* Goals Grid */}
-      <div 
-        className="animate-slide-up min-h-[400px]" 
+      <div
+        className="animate-slide-up min-h-[400px]"
         style={{ animationDelay: "0.2s" }}
       >
         {filteredGoals && filteredGoals.length > 0 ? (
@@ -129,7 +129,7 @@ export default function GoalsPage() {
               <GoalCard
                 key={goal._id}
                 goal={goal}
-                style={{ 
+                style={{
                   animationDelay: `${0.1 + (index * 0.05)}s`,
                 }}
               />
@@ -150,10 +150,10 @@ export default function GoalsPage() {
                 ? "We couldn't find any goals matching your current filters. Try adjusting them or clear all filters."
                 : "Create your first goal to begin tracking your progress, building habits, and achieving your dreams."}
             </p>
-            
+
             {searchQuery || statusFilter !== "all" || categoryFilter !== "all" ? (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("all");
@@ -164,8 +164,8 @@ export default function GoalsPage() {
                 Clear all filters
               </Button>
             ) : (
-              <Button 
-                onClick={() => setIsCreateOpen(true)} 
+              <Button
+                onClick={() => setIsCreateOpen(true)}
                 className="gap-2 rounded-xl h-11 px-8 shadow-lg shadow-primary/20"
               >
                 <Plus className="w-4 h-4" />

@@ -124,10 +124,32 @@ export const toggleComplete = mutation({
     if (!task) return;
 
     const newCompleted = !task.completed;
+
+    // 1. Update the task
     await ctx.db.patch(args.id, {
       completed: newCompleted,
       completedAt: newCompleted ? Date.now() : undefined,
     });
+
+    // 2. Update Goal Progress immediately (eliminates the need for a second client call)
+    const allGoalTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
+      .collect();
+
+    const updatedTasks = allGoalTasks.map((t) =>
+      t._id === args.id ? { ...t, completed: newCompleted } : t
+    );
+
+    if (updatedTasks.length > 0) {
+      const completedCount = updatedTasks.filter((t) => t.completed).length;
+      const progress = Math.round((completedCount / updatedTasks.length) * 100);
+
+      await ctx.db.patch(task.goalId, {
+        progress,
+        updatedAt: Date.now(),
+      });
+    }
 
     return newCompleted;
   },

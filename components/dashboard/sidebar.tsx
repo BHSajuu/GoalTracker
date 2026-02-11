@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import Image from "next/image";
 
 // Navigation Items
 const navItems = [
@@ -42,8 +43,8 @@ export function DashboardSidebar() {
     <div className="flex flex-col h-full">
       <div className="flex items-center h-16 px-6 border-b border-border/50">
         <Link href="/dashboard" className="flex items-center gap-3 group" onClick={() => setOpen(false)}>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 group-hover:animate-glow-pulse transition-all">
-            <Zap className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl border border-blue-300/30 animate-glow-pulse transition-all">
+            <Image src="/logo.png" alt="Logo" width={28} height={28} className="" />
           </div>
           <span className="text-2xl font-bold text-foreground tracking-tight">
             Zielio
@@ -64,8 +65,8 @@ export function DashboardSidebar() {
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(0,212,255,0.15)]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:scale-105"
+                  ? "text-white border border-blue-300/30 shadow-[0_0_25px_rgba(147,197,253,0.5)]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:scale-105 hover:shadow-[0_0_15px_rgba(147,197,253,0.35)]"
               )}
             >
               <item.icon className="w-5 h-5" />

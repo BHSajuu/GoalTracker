@@ -6,11 +6,11 @@ import { useAuth } from "@/lib/auth-context";
 import { WeeklyProgressChart } from "@/components/analytics/weekly-progress-chart";
 import { GoalDistributionChart } from "@/components/analytics/goal-distribution-chart";
 import { CategoryBreakdownChart } from "@/components/analytics/category-breakdown-chart";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsStatsCards } from "@/components/analytics/analytics-stats-cards";
 import { EfficiencyChart } from "@/components/analytics/efficiency-chart";
 import { TasksByPriorityChart } from "@/components/analytics/tasks-by-priority-chart";
 import { GoalProgressChart } from "@/components/analytics/goal-progress-chart";
+import { AnalyticsSkeleton } from "@/components/analytics/analytics-skeleton";
 
 export default function AnalyticsPage() {
   const { userId } = useAuth();
@@ -23,23 +23,7 @@ export default function AnalyticsPage() {
   const isLoading = goals === undefined || tasks === undefined || stats === undefined;
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col space-y-6 h-full p-4 overflow-x-hidden">
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-          <Skeleton className="h-80 rounded-2xl" />
-          <Skeleton className="h-80 rounded-2xl" />
-        </div>
-      </div>
-    );
+    return <AnalyticsSkeleton />;
   }
 
   const activeGoals = goals?.filter((g) => g.status === "active").length || 0;
