@@ -48,9 +48,10 @@ export default defineSchema({
   notes: defineTable({
     userId: v.id("users"),
     goalId: v.id("goals"),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("link")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+    language: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_goal", ["goalId"])
@@ -66,4 +67,12 @@ export default defineSchema({
   })
   .index("by_user", ["userId"])
   .index("by_task", ["taskId"]),
+
+  visitors: defineTable({
+    ip: v.string(),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
+    firstSeen: v.number(),
+    lastVisit: v.number(),
+  }).index("by_ip", ["ip"]),
 });

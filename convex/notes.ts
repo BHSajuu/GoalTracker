@@ -11,9 +11,12 @@ export const create = mutation({
   args: {
     userId: v.id("users"),
     goalId: v.id("goals"),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("link")),
+    // UPDATE: Added "code" to the union
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+    // UPDATE: Added language arg
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("notes", {
@@ -22,6 +25,7 @@ export const create = mutation({
       type: args.type,
       content: args.content,
       images: args.images,
+      language: args.language,
       createdAt: Date.now(),
     });
   },
@@ -33,7 +37,10 @@ export const update = mutation({
     id: v.id("notes"),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
-    type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"))),
+    // UPDATE: Added "code" to the union
+    type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"))),
+    // UPDATE: Added language arg
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

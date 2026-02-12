@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, ChevronLeft, ChevronRight, X, Maximize2, PencilIcon } from "lucide-react";
@@ -13,14 +13,7 @@ import { UpsertNoteDialog } from "./upsert-note-dialog";
 import Image from "next/image";
 
 interface ImageNoteCardProps {
-  note: {
-    _id: Id<"notes">;
-    type: "image" | "text" | "link";
-    content?: string;
-    images?: string[];
-    imageUrls?: string[];
-    createdAt: number;
-  };
+  note: Doc<"notes"> & { imageUrls?: string[] }; // Extend Doc with the extra prop we added in the query
 }
 
 export function ImageNoteCard({ note }: ImageNoteCardProps) {
@@ -156,7 +149,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       {/* Custom Full Screen Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed mt-44 m-4 md:m-10 rounded-4xl max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
+          className="fixed mt-44 m-4 md:m-10 rounded-4xl max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-9999 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
           onClick={() => setLightboxIndex(null)} // Close on backdrop click
         >
           {/* Close Button */}
@@ -165,7 +158,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               e.stopPropagation();
               setLightboxIndex(null);
             }}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000]"
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10000"
           >
             <X className="w-8 h-8" />
           </button>

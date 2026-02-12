@@ -15,6 +15,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import Image from "next/image";
 
 export function DashboardHeader() {
   const { logout, userEmail } = useAuth();
@@ -45,7 +46,7 @@ export function DashboardHeader() {
               <div className="flex flex-col h-full">
                 <div className="flex items-center h-16 px-6 border-b border-border/50">
                   <div className="flex items-center gap-2 font-bold text-xl">
-                    <Zap className="w-5 h-5 text-primary" /> Zielio
+                    <Image src="/logo.png" alt="Logo" width={28} height={28}  />Zielio
                   </div>
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
@@ -73,7 +74,7 @@ export function DashboardHeader() {
 
           {/* Logo Text for Mobile */}
           <div className="flex items-center gap-2 md:hidden">
-            <Zap className="w-5 h-5 text-primary" />
+            <Image src="/logo.png" alt="Logo" width={28} height={28}  />
             <span className="font-bold text-lg">Zielio</span>
           </div>
         </div>

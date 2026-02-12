@@ -17,6 +17,7 @@ import type * as notes from "../notes.js";
 import type * as scheduler from "../scheduler.js";
 import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
+import type * as visitors from "../visitors.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   scheduler: typeof scheduler;
   tasks: typeof tasks;
   users: typeof users;
+  visitors: typeof visitors;
 }>;
 
 /**

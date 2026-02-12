@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth-context";
 import { TaskItem } from "@/components/tasks/task-item";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { PlanDayDialog } from "@/components/tasks/plan-day-dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TasksPageSkeleton } from "@/components/tasks/skeletons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,8 +22,7 @@ import {
   Plus,
   Search,
   CheckSquare,
-  Filter,
-  Sparkles
+  Filter
 } from "lucide-react";
 import Image from "next/image";
 

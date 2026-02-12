@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc} from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, ExternalLink, Pencil} from "lucide-react";
@@ -13,12 +13,7 @@ import { UpsertNoteDialog } from "./upsert-note-dialog";
 import Image from "next/image";
 
 interface LinkNoteCardProps {
-  note: {
-    _id: Id<"notes">;
-    type: "link" | "text" | "image";
-    content?: string;
-    createdAt: number;
-  };
+  note: Doc<"notes">;
 }
 
 export function LinkNoteCard({ note }: LinkNoteCardProps) {

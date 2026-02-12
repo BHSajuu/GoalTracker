@@ -7,22 +7,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  Target,
   CheckSquare,
-  BarChart3,
   Zap,
   ArrowRight,
-  Shield,
   Sparkles,
-  Timer,
-  Image as ImageIcon,
-  Layout,
-  Terminal,
   Trophy
 } from "lucide-react";
 import Image from "next/image";
 import { PrivacyDialog } from "@/components/legal/privacy-dialog";
 import { TermsDialog } from "@/components/legal/terms-dialog";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 //  Utility for Scroll Animations 
 function useScrollAnimation() {
@@ -49,7 +44,7 @@ function useScrollAnimation() {
 
 
 const HeroVisual = () => (
-  <div className="relative w-full max-w-[600px] aspect-[4/3] mx-auto perspective-1000">
+  <div className="relative w-full max-w-150 aspect-4/3 mx-auto perspective-1000">
     {/* Floating Elements Background */}
     <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full animate-pulse" />
 
@@ -77,7 +72,7 @@ const HeroVisual = () => (
         {/* Main Content */}
         <div className="col-span-2 space-y-4">
           {/* Chart Area */}
-          <div className="h-32 bg-gradient-to-br from-primary/10 to-accent/5 rounded-xl border border-primary/20 flex items-end justify-between p-4 pb-0">
+          <div className="h-32 bg-linear-to-br from-primary/10 to-accent/5 rounded-xl border border-primary/20 flex items-end justify-between p-4 pb-0">
             {[40, 70, 50, 90, 60, 80].map((h, i) => (
               <div key={i} className="w-3 bg-primary/40 rounded-t-sm hover:bg-primary/80 transition-colors" style={{ height: `${h}%` }} />
             ))}
@@ -125,23 +120,27 @@ const HeroVisual = () => (
   </div>
 );
 
-const FeatureCard = ({ icon: Icon, title, desc, delay }: { icon: any, title: string, desc: string, delay: number }) => {
+const FeatureCard = ({ imageSrc, title, desc, delay }: { imageSrc: string, title: string, desc: string, delay: number }) => {
   const { ref, isVisible } = useScrollAnimation();
 
   return (
     <div
       ref={ref}
       className={cn(
-        "group relative p-6 rounded-2xl bg-card/30 border border-white/5 hover:border-primary/20 transition-all duration-500 hover:-translate-y-2",
+        "group relative p-5 rounded-2xl bg-card/30 border border-white/5 hover:border-primary/20 transition-all duration-500 hover:-translate-y-2",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
       )}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+      <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
       <div className="relative z-10">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-          <Icon className="w-6 h-6 text-primary" />
-        </div>
+        <Image 
+            src={imageSrc} 
+            alt={title} 
+            width={40} 
+            height={40} 
+            className="m-3 object-contain"
+          />
         <h3 className="text-xl font-bold text-foreground mb-2">{title}</h3>
         <p className="text-muted-foreground leading-relaxed">{desc}</p>
       </div>
@@ -149,10 +148,74 @@ const FeatureCard = ({ icon: Icon, title, desc, delay }: { icon: any, title: str
   );
 };
 
+
+
+function VisitorCounter() {
+  const trackVisitor = useMutation(api.visitors.trackVisitor);
+  const visitorCount = useQuery(api.visitors.getVisitorCount);
+  const hasTracked = useRef(false);
+
+  useEffect(() => {
+    if (hasTracked.current) return;
+    hasTracked.current = true;
+
+    const track = async () => {
+      try {
+        // 1. Call our internal API
+        const response = await fetch("/api/geo");
+        if (!response.ok) return; // Silent fail if API down
+        
+        const data = await response.json();
+
+        // 2. STRICT MODE: Only track if we have a valid-looking IP
+        if (data.ip) {
+           await trackVisitor({
+            ip: data.ip,
+            city: data.city || "Unknown",
+            country: data.country || "Unknown",
+          });
+        }
+      } catch (error) {
+        console.error("Tracking error:", error);
+      }
+    };
+
+    track();
+  }, [trackVisitor]);
+
+  // Loading State
+  if (visitorCount === undefined) {
+    return (
+      <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 opacity-50">
+        <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
+        <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 animate-fade-in">
+      <div className="flex -space-x-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center overflow-hidden">
+             <div className={`w-full h-full bg-linear-to-br ${i===1?'from-blue-500':i===2?'from-purple-500':'from-green-500'} to-transparent opacity-80`} />
+          </div>
+        ))}
+      </div>
+      <div className="text-sm">
+        <p className="font-bold text-foreground flex items-center gap-2">
+          {/* Default to 1 so the UI doesn't look broken initially */}
+          <span className="text-primary">{(visitorCount || 1).toLocaleString()}</span> Students Joined
+        </p>
+        <p className="text-muted-foreground text-xs">Live tracking active</p>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { userId, isLoading } = useAuth();
   const router = useRouter();
-  const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
 
   useEffect(() => {
     if (!isLoading && userId) {
@@ -173,13 +236,13 @@ export default function HomePage() {
 
       {/* Background Grid & Effects */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]" />
-        <div className="absolute right-0 bottom-0 -z-10 h-[310px] w-[310px] rounded-full bg-accent/20 opacity-20 blur-[100px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]" />
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-77.5 w-77.5 rounded-full bg-primary/20 opacity-20 blur-[100px]" />
+        <div className="absolute right-0 bottom-0 -z-10 h-77.5 w-77.5 rounded-full bg-accent/20 opacity-20 blur-[100px]" />
       </div>
 
       {/* Navbar */}
-      <nav className="sticky md:top-10 top-5 z-50 w-[90vw] md:w-[70vw] mx-auto border-b border-white/5 bg-background/60 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 rounded-3xl shadow-[0_0_15px_rgba(147,197,253,0.25)] hover:shadow-[0_0_20px_rgba(147,197,253,0.3)] transition-all duration-400">
+      <nav className="sticky md:top-10 top-5 z-50 w-[90vw] md:w-[70vw] mx-auto border-b border-white/5 bg-background/60 backdrop-blur-md supports-backdrop-filter:bg-background/60 rounded-3xl shadow-[0_0_15px_rgba(147,197,253,0.25)] hover:shadow-[0_0_20px_rgba(147,197,253,0.3)] transition-all duration-400">
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-lg bg-primary/10 border border-primary/20 animate-glow-pulse">
@@ -209,7 +272,7 @@ export default function HomePage() {
 
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-6 leading-[1.1]">
                 Stop Dreaming. <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent animate-gradient">
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-accent animate-gradient">
                   Start Shipping.
                 </span>
               </h1>
@@ -242,10 +305,11 @@ export default function HomePage() {
                 </div>
                 <p>Join 1,000+ Students</p>
               </div> */}
+              <VisitorCounter/>
             </div>
 
             {/* Right: 3D Visual */}
-            <div className="flex-1 w-full max-w-[600px] lg:max-w-none">
+            <div className="flex-1 w-full max-w-150 lg:max-w-none">
               <HeroVisual />
             </div>
           </div>
@@ -266,51 +330,57 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={Target}
-              title="Smart Goal Setting"
-              desc="Break down massive semester projects into manageable chunks. Set deadlines and categorize by subject."
+          <FeatureCard
+              imageSrc="/ai.png"
+              title="AI Powered Goal Creation"
+              desc="Transform vague ideas into concrete roadmaps. Our AI breaks down your ambitions into actionable tasks instantly."
               delay={0}
             />
+            
             <FeatureCard
-              icon={Terminal}
-              title="Dev-Ready Workflow"
-              desc="Designed by developers for developers. Track your coding projects, bug fixes, and learning paths."
-              delay={100}
+              imageSrc="/ai3.png"
+              title="AI Powered Overdue Scheduler"
+              desc="Fell behind? Our AI agent automatically detects overdue tasks and intelligently reschedules them so you never lose momentum."
+              delay={500}
             />
+
             <FeatureCard
-              icon={Timer}
-              title="Focus Sessions"
-              desc="Built-in Pomodoro timer integrated with your tasks. Track exactly how long you spend on DSA vs Dev."
+              imageSrc="/algo.png"
+              title="Plan My Day Algorithm"
+              desc="Overwhelmed? Our smart algorithm analyzes your pending tasks, deadlines, and available hours to curate the perfect daily schedule."
               delay={200}
             />
+
             <FeatureCard
-              icon={BarChart3}
+              imageSrc="/va.png"
               title="Visual Analytics"
               desc="Don't just guess. See your efficiency trends, completion rates, and daily streaks in real-time."
               delay={300}
             />
+            
             <FeatureCard
-              icon={ImageIcon}
+              imageSrc="/note.png"
               title="Rich Notes"
               desc="Attach diagrams, screenshots, and links directly to your goals. Keep your resources where your work is."
               delay={400}
             />
-            <FeatureCard
-              icon={Shield}
-              title="Secure & Private"
-              desc="Your data is yours. Authenticated securely via email. No tracking, no ads, just productivity."
-              delay={500}
+
+             <FeatureCard
+              imageSrc="/dev.png"
+              title="Dev-Ready Workflow"
+              desc="Designed by developers for developers. Track your coding projects, bug fixes, and learning paths."
+              delay={100}
             />
+
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className=" py-12 md:py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-primary/5" />
+      <section className=" py-12 md:py-20 relative overflow-hidden">
+        <div className="absolute inset-0" />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <div className="max-w-4xl mx-auto glass-card rounded-3xl p-10 md:p-16 text-center border border-primary/20 shadow-[0_0_40px_rgba(0,212,255,0.1)]">
+          <div className="max-w-4xl mx-auto glass-card rounded-3xl p-10 md:p-16 text-center border border-primary/20 shadow-[0_0_60px_rgba(0,212,255,0.2)]">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
               Ready to upgrade your workflow?
             </h2>
