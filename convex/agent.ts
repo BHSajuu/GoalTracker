@@ -64,7 +64,7 @@ export const getDriftMetrics = query({
       hasDrift: overdueTasks.length > 0,
       driftMinutes,
       overdueCount: overdueTasks.length,
-      isCritical, 
+      isCritical,
       overdueTasks: overdueTasks.map((t) => ({
         _id: t._id,
         title: t.title,
@@ -81,7 +81,7 @@ export const getScheduleContext = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const today = getStartOfDay(Date.now());
-    
+
     // Fetch ALL active tasks (Future)
     const allTasks = await ctx.db
       .query("tasks")
@@ -90,7 +90,7 @@ export const getScheduleContext = query({
       .collect();
 
     const calendar = [] as any[];
-    
+
     // Scan next 7 days
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
@@ -155,7 +155,7 @@ export const recoverSchedule = action({
     });
 
     const openai = new OpenAI({
-      apiKey: process.env.NVIDIA_API_KEY,
+      apiKey: process.env.NVIDIA_MISTRAL_API_KEY,
       baseURL: "https://integrate.api.nvidia.com/v1",
     });
 
@@ -223,7 +223,7 @@ export const recoverSchedule = action({
     const updates = plan.map((item: any) => {
       const date = new Date(today);
       date.setDate(date.getDate() + item.newDateOffset);
-      date.setHours(9, 0, 0, 0); 
+      date.setHours(9, 0, 0, 0);
       return {
         taskId: item.taskId,
         newDate: date.getTime(),
@@ -232,10 +232,10 @@ export const recoverSchedule = action({
 
     await ctx.runMutation(internal.agent.saveRecoveryPlan, { updates });
 
-    return { 
-      success: true, 
-      message: `Re-optimized schedule. ${updates.length} tasks updated.`, 
-      plan: updates 
+    return {
+      success: true,
+      message: `Re-optimized schedule. ${updates.length} tasks updated.`,
+      plan: updates
     };
   },
 });

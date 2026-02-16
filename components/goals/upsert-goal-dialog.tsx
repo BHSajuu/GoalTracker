@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Target, Sparkles, Bot, CheckCircle2,
-  CalendarDays, LayoutTemplate, Palette, Zap
+  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -78,6 +78,7 @@ export function UpsertGoalDialog({
 
   //  AI States 
   const [aiPrompt, setAiPrompt] = useState("");
+  const [aiMode, setAiMode] = useState<"fast" | "smart">("fast"); // New State
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
 
@@ -101,6 +102,7 @@ export function UpsertGoalDialog({
         resetForm();
         setGeneratedPlan(null);
         setAiPrompt("");
+        setAiMode("fast"); // Reset mode
         setActiveTab("ai");
       }
     }
@@ -150,7 +152,8 @@ export function UpsertGoalDialog({
     setGeneratedPlan(null);
 
     try {
-      const plan = await generatePlan({ prompt: aiPrompt });
+      // Updated to pass 'mode'
+      const plan = await generatePlan({ prompt: aiPrompt, mode: aiMode });
       setGeneratedPlan(plan as AiPlan);
       toast.success("Plan generated!");
     } catch (error) {
@@ -166,13 +169,22 @@ export function UpsertGoalDialog({
     setIsLoading(true);
 
     try {
+      // Robust Date Parsing
+      const dateParts = generatedPlan.targetDate.split("-");
+      // Handle potential M-D-YYYY vs MM-DD-YYYY
+      const month = parseInt(dateParts[0]) - 1;
+      const day = parseInt(dateParts[1]);
+      const year = parseInt(dateParts[2]);
+
+      const timestamp = new Date(year, month, day).getTime();
+
       await createGoalWithTasks({
         userId,
         title: generatedPlan.title,
         description: generatedPlan.description,
         category: generatedPlan.category,
         color: generatedPlan.color || colorOptions[0],
-        targetDate: new Date(generatedPlan.targetDate).getTime(),
+        targetDate: timestamp,
         tasks: generatedPlan.tasks,
       });
       toast.success("Goal and tasks created successfully!");
@@ -325,7 +337,7 @@ export function UpsertGoalDialog({
                   </motion.div>
                 </TabsContent>
 
-                {/*  AI TAB (Updated Color Theme)  */}
+                {/* AI TAB (Updated Color Theme)  */}
                 <TabsContent value="ai" key="ai" className="mt-0 outline-none h-full" asChild>
                   <motion.div
                     key="ai"
@@ -336,11 +348,11 @@ export function UpsertGoalDialog({
                   >
                     {!generatedPlan ? (
                       // Input State
-                      <div className="flex flex-col gap-6 h-full justify-center">
+                      <div className="flex flex-col gap-6 h-full justify-start pt-2">
                         <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-blue-600/30 via-teal-500/20 to-indigo-600/30">
                           <div className="rounded-[15px] bg-background/95 backdrop-blur-xl p-6 relative overflow-hidden">
                             <h3 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2">
-                              <Image src="/ai.png" alt="AI Architect" width={30} height={30}   className="text-blue-400" />
+                              <Image src="/ai.png" alt="AI Architect" width={30} height={30} className="text-blue-400" />
                               AI Architect
                             </h3>
                             <p className="text-sm text-muted-foreground mb-4">
@@ -350,8 +362,44 @@ export function UpsertGoalDialog({
                               placeholder="e.g. I want to learn Next.js and build a portfolio project in 2 weeks..."
                               value={aiPrompt}
                               onChange={(e) => setAiPrompt(e.target.value)}
-                              className="min-h-[140px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50"
+                              className="min-h-[100px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50 mb-4"
                             />
+
+                            {/* --- NEW MODEL SELECTOR --- */}
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                              <div
+                                onClick={() => setAiMode("fast")}
+                                className={cn(
+                                  "cursor-pointer p-3 rounded-xl border border-white/5 transition-all flex flex-col items-center text-center gap-2 hover:bg-secondary/30",
+                                  aiMode === "fast"
+                                    ? "bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/30"
+                                    : "bg-secondary/20"
+                                )}
+                              >
+                                <Zap className={cn("w-5 h-5", aiMode === "fast" ? "text-teal-400" : "text-muted-foreground")} />
+                                <div>
+                                  <p className={cn("font-bold text-sm", aiMode === "fast" ? "text-teal-400" : "text-muted-foreground")}>Turbo</p>
+                                  <p className="text-[10px] text-muted-foreground/70">Fast. Best for simple goals.</p>
+                                </div>
+                              </div>
+
+                              <div
+                                onClick={() => setAiMode("smart")}
+                                className={cn(
+                                  "cursor-pointer p-3 rounded-xl border border-white/5 transition-all flex flex-col items-center text-center gap-2 hover:bg-secondary/30",
+                                  aiMode === "smart"
+                                    ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-indigo-500/30"
+                                    : "bg-secondary/20"
+                                )}
+                              >
+                                <GraduationCap className={cn("w-5 h-5", aiMode === "smart" ? "text-indigo-400" : "text-muted-foreground")} />
+                                <div>
+                                  <p className={cn("font-bold text-sm", aiMode === "smart" ? "text-indigo-400" : "text-muted-foreground")}>Deep Think</p>
+                                  <p className="text-[10px] text-muted-foreground/70">Reasoning. Best for complex plans.</p>
+                                </div>
+                              </div>
+                            </div>
+                            {/* ------------------------- */}
                           </div>
                         </div>
                       </div>
@@ -371,11 +419,14 @@ export function UpsertGoalDialog({
                                 {generatedPlan.title}
                               </h3>
                               <div className="flex items-center gap-2 text-xs">
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded-full border bg-opacity-10",
+                                  aiMode === "fast" ? "bg-teal-500 text-teal-300 border-teal-500/20" : "bg-indigo-500 text-indigo-300 border-indigo-500/20"
+                                )}>
+                                  {aiMode === "fast" ? "Turbo" : "Deep Think"}
+                                </span>
                                 <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
                                   {generatedPlan.category}
-                                </span>
-                                <span className="text-muted-foreground px-2">
-                                  Target: {generatedPlan.targetDate}
                                 </span>
                               </div>
                             </div>
@@ -386,6 +437,10 @@ export function UpsertGoalDialog({
                           </div>
                           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
                             {generatedPlan.description}
+                          </p>
+                          {/* Add Target Date Display */}
+                          <p className="mt-2 text-xs text-muted-foreground font-mono">
+                            Target: {generatedPlan.targetDate}
                           </p>
 
                           {/* Decorative blurry blobs */}
@@ -509,7 +564,12 @@ export function UpsertGoalDialog({
               <Button
                 onClick={handleGeneratePlan}
                 disabled={isGenerating || !aiPrompt.trim()}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-500/20"
+                className={cn(
+                  "text-white shadow-lg transition-all",
+                  aiMode === "fast"
+                    ? "bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 shadow-teal-500/20"
+                    : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-500/20"
+                )}
               >
                 {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
                 {isGenerating ? "Architecting..." : "Generate Plan"}

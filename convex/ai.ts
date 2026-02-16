@@ -2,108 +2,145 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
-  baseURL: "https://integrate.api.nvidia.com/v1",
-});
-
 export const generateGoalPlan = action({
   args: {
     prompt: v.string(),
+    mode: v.union(v.literal("fast"), v.literal("smart")),
   },
   handler: async (ctx, args) => {
-      const today = new Date().toDateString();
+    const today = new Date().toDateString();
+
+    let openai: OpenAI;
+    let modelId: string;
+    let temperature: number;
+    let maxTokens: number;
+
+
+    if (args.mode === "fast") {
+      if (!process.env.NVIDIA_MINIMAXAI_API_KEY) {
+        throw new Error("Missing NVIDIA_MINIMAXAI_API_KEY in Environment Variables.");
+      }
+
+      modelId = "minimaxai/minimax-m2";
+      temperature = 1;
+      maxTokens = 8192;
+      openai = new OpenAI({
+        apiKey: process.env.NVIDIA_MINIMAXAI_API_KEY,
+        baseURL: "https://integrate.api.nvidia.com/v1",
+      });
+    } else {
+      if (!process.env.NVIDIA_MISTRAL_API_KEY) {
+        throw new Error("Missing NVIDIA_MISTRAL_API_KEY in Environment Variables.");
+      }
+
+      modelId = "stepfun-ai/step-3.5-flash";
+      temperature = 1;
+      maxTokens = 16384;
+      openai = new OpenAI({
+        apiKey: "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",
+        baseURL: "https://integrate.api.nvidia.com/v1",
+      });
+    }
+
+    console.log(`🚀 AI Agent Starting | Mode: ${args.mode} | Model: ${modelId}`);
+
+    try {
       const response = await openai.chat.completions.create({
-      model: "mistralai/devstral-2-123b-instruct-2512",
-      messages: [
-        {
-          role: "system",
-          content: `You are a helpful productivity assistant. 
-          Today's date is ${today}.
-          The user will give you a goal (e.g., "Learn React in 30 days").
-          You must generate a structured plan.
-          
-          You must return ONLY a valid JSON object. Do not include markdown code blocks like \`\`\`json.
-          
-          Required JSON Structure:
+        model: modelId,
+        messages: [
           {
-            "title": "Refined and concise goal title",
-            "description": "A short, motivating summary of the goal",
-            "category": "Choose the most relevant category from the list below",
-            "color": "A hex color code (e.g., #FF5733) relevant to the category",
-            "targetDate": "must be in the format MM-DD-YYYY",
+            role: "system",
+            content: `You are an expert productivity planner.
+          Today's date is ${today}.
+          
+          OBJECTIVE:
+          The user will give you a goal (e.g., "Learn React in 30 days").
+          You must generate a concrete, step-by-step execution plan in STRICT JSON format.
+
+          CRITICAL OUTPUT RULES:
+          1. Output ONLY valid JSON. 
+          2. Do NOT include markdown formatting (no \`\`\`json).
+          3. Do NOT include introductory text.
+          4. If you utilize a reasoning chain (typical for "smart" mode), keep it internal or wrapped in <think> tags.
+
+          REQUIRED JSON STRUCTURE:
+          {
+            "title": "Refined Goal Title",
+            "description": "Inspiring summary",
+            "category": "Category Name (choose from standard list)",
+            "color": "Hex Code",
+            "targetDate": "MM-DD-YYYY",
             "tasks": [
               {
-                "title": "Clear task title",
-                "description": "What the user should do in this task",
+                "title": "Actionable Task Title",
+                "description": "Specific instructions for this day",
                 "priority": "high" | "medium" | "low",
-                "estimatedTime": number (in minutes),
-                "dueDateOffset": number (days from now, e.g. 1 for tomorrow)
+                "estimatedTime": number (minutes),
+                "dueDateOffset": number (0 for today, 1 for tomorrow, etc.)
               }
             ]
           }
-          
-       Available categories (choose the closest match):
-      - AI & ML
-      - Web-Dev
-      - Mobile-App-Dev
-      - Data-Science & Analytics
-      - Cloud & DevOps
-      - Cybersecurity
-      - Programming-Fundamentals
-      - Semester-Exams
-      - Competitive-Exams
-      - School & College Studies
-      - Career & Job Preparation
-      - Work & Professional Projects
-      - Business & Startup
-      - Personal Development
-      - Health & Fitness
-      - Mental Wellness
-      - Finance & Investing
-      - Productivity & Habits
-      - Creative (Design, Writing, Content)
-      - Language Learning
-      - Hobbies
-      - Travel & Lifestyle
-      - Other
 
-     CRITICAL RULES FOR TASK GENERATION:
-          1. **ONE TASK PER DAY MINIMUM:** You MUST generate a separate task object for EVERY single day from Day 0 (today) up to the targetDate.
-          2. **NO SKIPPING:** If the targetDate is 30 days away, the "tasks" array MUST contain at least 30 objects.
-          3. **SEQUENTIAL OFFSETS:** You must explicitly set "dueDateOffset" to 0, 1, 2, 3... N for every consecutive day. Do not skip numbers.
-          4. **REALISM:** If a goal requires 30 days, ensure you actually generate 30 distinct tasks. Do not just say "Review" for 5 days; break it down.
-          
-          General Rules:
-          - Select ONE best-fit category.
-          - If the user implies a duration (e.g. "in a month"), set targetDate exactly that far away and fill every day.
-          - If the goal is very long-term (e.g. "Become a Doctor"), create a detailed plan for the FIRST 30-60 DAYS only, and set the targetDate to the end of that phase.
+          Available Categories:
+          - AI & ML, Web-Dev, Mobile-App-Dev, Data-Science & Analytics
+          - Cloud & DevOps, Cybersecurity, Programming-Fundamentals
+          - Semester-Exams, Competitive-Exams, School & College Studies
+          - Career & Job Preparation, Work & Professional Projects
+          - Business & Startup, Personal Development, Health & Fitness
+          - Mental Wellness, Finance & Investing, Productivity & Habits
+          - Creative, Language Learning, Hobbies, Other
+
+          PLANNING LOGIC:
+          1. **Coverage:** You MUST generate a task for EVERY day from offset 0 up to the target date.
+          2. **Sequence:** Ensure tasks follow a logical progression (e.g., Basics -> Practice -> Project).
+          3. **Realism:** If the user says "30 days", generate exactly 30 distinct tasks with offsets 0 to 29.
           `,
-        },
-  {
-    role: "user",
-    content: args.prompt,
-  },
-],
-      temperature: 0.2, // Lower temperature for more consistent JSON structure
-      max_tokens: 4000,
-    });
+          },
+          {
+            role: "user",
+            content: args.prompt,
+          },
+        ],
+        temperature: temperature,
+        max_tokens: maxTokens,
+      });
 
-    const content = response.choices[0].message.content;
-    
-    if (!content) {
-      throw new Error("No content generated");
-    }
+      const content = response.choices[0].message.content;
 
-    // Cleaning: Sometimes models wrap the response in markdown blocks even when told not to.
-    // This removes ```json and ``` from the start/end if present.
-    const cleanContent = content.replace(/```json/g, "").replace(/```/g, "").trim();
+      if (!content) {
+        throw new Error("AI returned empty content.");
+      }
 
-    try {
-      return JSON.parse(cleanContent);
-    } catch (error) {
-      console.error("AI Output that failed to parse:", cleanContent);
-      throw new Error("Failed to generate a valid plan. Please try again.");
+      console.log("✅ AI Response Received. Length:", content.length);
+
+      // --- ROBUST PARSING LOGIC ---
+
+      // 1. Remove <think> tags (Specific to DeepSeek R1 models)
+      // We use a regex that captures newlines to ensure we get the whole block
+      let cleanContent = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+      // 2. Remove Markdown code blocks
+      cleanContent = cleanContent.replace(/```json/g, "").replace(/```/g, "");
+
+      // 3. Extract the JSON object by finding the first '{' and last '}'
+      const firstBrace = cleanContent.indexOf("{");
+      const lastBrace = cleanContent.lastIndexOf("}");
+
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanContent = cleanContent.substring(firstBrace, lastBrace + 1);
+      }
+
+      try {
+        return JSON.parse(cleanContent);
+      } catch (error) {
+        console.error("❌ JSON Parse Failed. Raw Clean Content:", cleanContent);
+        throw new Error("The AI generated a plan, but it wasn't valid JSON. Please try 'Turbo' mode for now.");
+      }
+
+    } catch (error: any) {
+      console.error("🔥 AI Generation Error:", error.message);
+      // Pass the error message back to the client so you see it in the Toast
+      throw new Error(`AI Error: ${error.message}`);
     }
   },
 });
