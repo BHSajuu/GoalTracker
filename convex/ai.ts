@@ -37,7 +37,7 @@ export const generateGoalPlan = action({
       temperature = 1;
       maxTokens = 16384;
       openai = new OpenAI({
-        apiKey: "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",
+        apiKey: process.env.NVIDIA_STEPFUN_AI_API_KEY,
         baseURL: "https://integrate.api.nvidia.com/v1",
       });
     }
@@ -141,6 +141,65 @@ export const generateGoalPlan = action({
       console.error("🔥 AI Generation Error:", error.message);
       // Pass the error message back to the client so you see it in the Toast
       throw new Error(`AI Error: ${error.message}`);
+    }
+  },
+});
+
+
+
+export const analyzeImage = action({
+  args: {
+    imageBase64: v.string(), 
+    prompt: v.optional(v.string()), 
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.NVIDIA_LLAMA_VISION_API_KEY; 
+    
+    if (!apiKey) {
+      throw new Error("Missing NVIDIA_LLAMA_VISION_API_KEY in Environment Variables. Please add it in the Convex Dashboard.");
+    }
+
+    // Llama 3.2 Vision (11B)
+    const modelId = "meta/llama-3.2-11b-vision-instruct";
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    });
+
+    console.log("👁️ Vision Analysis Starting...");
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: modelId,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: args.prompt || "Analyze this image. If it contains text, transcribe it. If it's a diagram, explain it. Keep it concise.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: args.imageBase64, 
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1024,
+        temperature: 0.2,
+      });
+
+      const result = response.choices[0].message.content;
+      console.log("✅ Vision Analysis Complete");
+      
+      return result;
+    } catch (error: any) {
+      console.error("🔥 Vision Error:", error);
+      throw new Error("Failed to analyze image: " + error.message);
     }
   },
 });
