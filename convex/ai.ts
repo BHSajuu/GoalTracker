@@ -146,15 +146,14 @@ export const generateGoalPlan = action({
 });
 
 
-
 export const analyzeImage = action({
   args: {
-    imageBase64: v.string(), 
-    prompt: v.optional(v.string()), 
+    imageBase64: v.string(),
+    prompt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const apiKey = process.env.NVIDIA_LLAMA_VISION_API_KEY; 
-    
+    const apiKey = process.env.NVIDIA_LLAMA_VISION_API_KEY;
+
     if (!apiKey) {
       throw new Error("Missing NVIDIA_LLAMA_VISION_API_KEY in Environment Variables. Please add it in the Convex Dashboard.");
     }
@@ -183,7 +182,7 @@ export const analyzeImage = action({
               {
                 type: "image_url",
                 image_url: {
-                  url: args.imageBase64, 
+                  url: args.imageBase64,
                 },
               },
             ],
@@ -195,11 +194,68 @@ export const analyzeImage = action({
 
       const result = response.choices[0].message.content;
       console.log("✅ Vision Analysis Complete");
-      
+
       return result;
     } catch (error: any) {
       console.error("🔥 Vision Error:", error);
       throw new Error("Failed to analyze image: " + error.message);
+    }
+  },
+});
+
+
+export const generateGoalImage = action({
+  args: {
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.NVIDIA_FLUX_1_SCHNELL_API_KEY;
+    if (!apiKey) throw new Error("Missing NVIDIA_FLUX_1_SCHNELL_API_KEY");
+
+    const invokeUrl = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
+
+    console.log("🎨 Generating Dream Board Image...");
+
+    try {
+      const response = await fetch(invokeUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: "A high-quality, inspiring, modern, cinematic, abstract 3d render representing this goal: " + args.description,
+          width: 1024,
+          height: 1024,
+          steps: 4, 
+          seed: Math.floor(Math.random() * 1000000) // Random seed for variety
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`NVIDIA API Error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // NVIDIA API returns a Base64 string in artifacts
+      const base64 = data.artifacts?.[0]?.base64;
+      
+      if (!base64) {
+        throw new Error("No image data returned from API");
+      }
+
+      // 3. Return as a Data URL
+      const imageUrl = `data:image/jpeg;base64,${base64}`;
+      
+      console.log("✅ Image Generated Successfully");
+      return imageUrl;
+
+    } catch (error: any) {
+      console.error("🔥 Image Gen Error:", error);
+      throw new Error("Failed to generate image: " + error.message);
     }
   },
 });
