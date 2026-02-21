@@ -83,7 +83,7 @@ export const generateGoalPlan = action({
 
           Available Categories:
           - AI & ML, Web-Dev, Mobile-App-Dev, Data-Science & Analytics
-          - Cloud & DevOps, Cybersecurity, Programming-Fundamentals
+          - Cloud & DevOps, Cybersecurity, Programming, CS core
           - Semester-Exams, Competitive-Exams, School & College Studies
           - Career & Job Preparation, Work & Professional Projects
           - Business & Startup, Personal Development, Health & Fitness
@@ -228,7 +228,7 @@ export const generateGoalImage = action({
           prompt: "A high-quality, inspiring, modern, cinematic, abstract 3d render representing this goal: " + args.description,
           width: 1024,
           height: 1024,
-          steps: 4, 
+          steps: 4,
           seed: Math.floor(Math.random() * 1000000) // Random seed for variety
         }),
       });
@@ -239,17 +239,17 @@ export const generateGoalImage = action({
       }
 
       const data = await response.json();
-      
+
       // NVIDIA API returns a Base64 string in artifacts
       const base64 = data.artifacts?.[0]?.base64;
-      
+
       if (!base64) {
         throw new Error("No image data returned from API");
       }
 
       // 3. Return as a Data URL
       const imageUrl = `data:image/jpeg;base64,${base64}`;
-      
+
       console.log("✅ Image Generated Successfully");
       return imageUrl;
 

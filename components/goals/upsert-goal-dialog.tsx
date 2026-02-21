@@ -37,7 +37,7 @@ interface UpsertGoalDialogProps {
     category: string;
     targetDate?: number;
     color: string;
-    imageUrl?: string; // Added this
+    imageUrl?: string;
   };
 }
 
@@ -73,7 +73,7 @@ export function UpsertGoalDialog({
   const [category, setCategory] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [color, setColor] = useState(colorOptions[0]);
-  const [imageUrl, setImageUrl] = useState(""); // New State
+  const [imageUrl, setImageUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"manual" | "ai">("manual");
 
@@ -81,7 +81,7 @@ export function UpsertGoalDialog({
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiMode, setAiMode] = useState<"fast" | "smart">("fast");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false); // New State
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
 
   //  Mutations & Actions 
@@ -89,7 +89,7 @@ export function UpsertGoalDialog({
   const updateGoal = useMutation(api.goals.update);
   const createGoalWithTasks = useMutation(api.goals.createGoalWithTasks);
   const generatePlan = useAction(api.ai.generateGoalPlan);
-  const generateImage = useAction(api.ai.generateGoalImage); // New Action
+  const generateImage = useAction(api.ai.generateGoalImage);
 
   useEffect(() => {
     if (open) {
@@ -99,7 +99,7 @@ export function UpsertGoalDialog({
         setCategory(initialData.category);
         setTargetDate(initialData.targetDate ? new Date(initialData.targetDate).toISOString().split('T')[0] : "");
         setColor(initialData.color);
-        setImageUrl(initialData.imageUrl || ""); // Load image
+        setImageUrl(initialData.imageUrl || "");
         setActiveTab("manual");
       } else if (mode === "create") {
         resetForm();
@@ -120,9 +120,7 @@ export function UpsertGoalDialog({
     setImageUrl("");
   };
 
-  // --- NEW HANDLER: GENERATE IMAGE ---
   const handleGenerateImage = async () => {
-    // Use title or description for the prompt
     const promptText = description || title || aiPrompt;
     if (!promptText) {
       toast.error("Enter a title or description first to generate an image.");
@@ -150,11 +148,11 @@ export function UpsertGoalDialog({
     try {
       const commonData = {
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: description.trim(),
         category: category.trim(),
         targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
         color,
-        imageUrl: imageUrl || undefined, // Save image
+        imageUrl: imageUrl !== "" ? imageUrl : "",
       };
 
       if (mode === "create") {
@@ -181,7 +179,6 @@ export function UpsertGoalDialog({
     try {
       const plan = await generatePlan({ prompt: aiPrompt, mode: aiMode });
       setGeneratedPlan(plan as AiPlan);
-      // Auto-populate form fields so they persist if user switches tabs
       setTitle(plan.title);
       setDescription(plan.description);
       setCategory(plan.category);
@@ -213,7 +210,7 @@ export function UpsertGoalDialog({
         category: generatedPlan.category,
         color: generatedPlan.color || colorOptions[0],
         targetDate: timestamp,
-        imageUrl: imageUrl || undefined, // Include image if generated
+        imageUrl: imageUrl,
         tasks: generatedPlan.tasks,
       });
       toast.success("Goal and tasks created successfully!");
@@ -226,16 +223,65 @@ export function UpsertGoalDialog({
     }
   };
 
-  // Animation Variants (kept same)
   const containerVariants: Variants = {
     hidden: { opacity: 0, scale: 0.95 },
     visible: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: "easeOut" } },
     exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
   };
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, x: -10 },
-    visible: { opacity: 1, x: 0 }
-  };
+
+  // Reusable Image Section component to prevent code duplication
+  const renderImageSection = () => (
+    <div className="space-y-2">
+      <Label className="flex items-center justify-between">
+        <span className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover Art</span>
+        {imageUrl && !isGeneratingImage && (
+          <button type="button" onClick={() => setImageUrl("")} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+        )}
+      </Label>
+
+      {isGeneratingImage ? (
+        // Highly Animated Loading State for Image Generation
+        <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gradient-to-br from-primary/5 to-primary/20 border border-primary/30 flex flex-col items-center justify-center group">
+          <motion.div
+            animate={{ x: ["-100%", "200%"] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+            className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-10"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            className="z-20 p-3 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/50 mb-2 shadow-lg shadow-primary/20"
+          >
+            <Palette className="w-5 h-5 text-primary" />
+          </motion.div>
+          <p className="z-20 text-sm font-semibold text-primary tracking-wide">Painting Dream...</p>
+        </div>
+      ) : imageUrl ? (
+        // Display Generated Image
+        <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 group">
+          <img src={imageUrl} alt="Cover" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button type="button" size="sm" variant="secondary" onClick={handleGenerateImage} disabled={isGeneratingImage}>
+              <RefreshCw className={cn("w-3 h-3 mr-2")} /> Regenerate
+            </Button>
+          </div>
+        </div>
+      ) : (
+        // Empty State / Generate Button
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all"
+            onClick={handleGenerateImage}
+            disabled={!title && !description && !aiPrompt}
+          >
+            <Sparkles className="w-4 h-4 mr-2" /> Generate AI Cover Art
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -300,41 +346,8 @@ export function UpsertGoalDialog({
                   >
                     <form id="manual-form" onSubmit={handleManualSubmit} className="space-y-5">
 
-                      {/* --- DREAM BOARD IMAGE SECTION --- */}
-                      <div className="space-y-2">
-                        <Label className="flex items-center justify-between">
-                          <span className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover Art</span>
-                          {imageUrl && (
-                            <button type="button" onClick={() => setImageUrl("")} className="text-xs text-red-400 hover:text-red-300">Remove</button>
-                          )}
-                        </Label>
-                        {imageUrl ? (
-                          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 group">
-                            <img src={imageUrl} alt="Cover" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button type="button" size="sm" variant="secondary" onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                                <RefreshCw className={cn("w-3 h-3 mr-2", isGeneratingImage && "animate-spin")} /> Regenerate
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all"
-                              onClick={handleGenerateImage}
-                              disabled={isGeneratingImage || (!title && !description)}
-                            >
-                              {isGeneratingImage ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Painting Dream...</>
-                              ) : (
-                                <><Sparkles className="w-4 h-4 mr-2" /> Generate AI Cover Art</>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      {/* DREAM BOARD IMAGE SECTION */}
+                      {renderImageSection()}
 
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2"><LayoutTemplate className="w-4 h-4 text-muted-foreground" /> Goal Title</Label>
@@ -411,7 +424,53 @@ export function UpsertGoalDialog({
                     exit={{ opacity: 0, y: -10 }}
                     className="flex flex-col h-full"
                   >
-                    {!generatedPlan ? (
+                    {isGenerating ? (
+                      // HIGHLY ANIMATED LOADING STATE
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex flex-col items-center justify-center h-full min-h-[300px] gap-6"
+                      >
+                        <div className="relative w-32 h-32 flex items-center justify-center">
+                          {/* Outer spinning ring */}
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                            className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                          />
+                          {/* Inner spinning ring */}
+                          <motion.div
+                            animate={{ rotate: -360 }}
+                            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                            className="absolute inset-3 rounded-full border-b-2 border-l-2 border-teal-400/80 shadow-[0_0_15px_rgba(45,212,191,0.3)]"
+                          />
+                          {/* Center Bot */}
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                            className="z-10 p-4 bg-background/80 backdrop-blur-md rounded-full border border-white/10"
+                          >
+                            <Image src="/ai2.png" alt="AI Architect" width={66} height={66} className="w-8 h-8 text-blue-400" />
+                          </motion.div>
+
+                          {/* Scanning laser */}
+                          <motion.div
+                            animate={{ top: ["0%", "100%", "0%"] }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                            className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent z-20 shadow-[0_0_8px_rgba(59,130,246,0.8)]"
+                          />
+                        </div>
+
+                        <div className="text-center space-y-2">
+                          <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 tracking-wide">
+                            Architecting Blueprint...
+                          </h3>
+                          <p className="text-xs text-muted-foreground animate-pulse">
+                            Decomposing goal into actionable milestones & timelines
+                          </p>
+                        </div>
+                      </motion.div>
+                    ) : !generatedPlan ? (
                       // Input State
                       <div className="flex flex-col gap-6 h-full justify-start pt-2">
                         <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-blue-600/30 via-teal-500/20 to-indigo-600/30">
@@ -430,7 +489,6 @@ export function UpsertGoalDialog({
                               className="min-h-[100px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50 mb-4"
                             />
 
-                            {/* --- NEW MODEL SELECTOR --- */}
                             <div className="grid grid-cols-2 gap-3 mt-4">
                               <div
                                 onClick={() => setAiMode("fast")}
@@ -464,19 +522,17 @@ export function UpsertGoalDialog({
                                 </div>
                               </div>
                             </div>
-                            {/* ------------------------- */}
                           </div>
                         </div>
                       </div>
                     ) : (
-                      // Review State (Kept as is)
+                      // Review State 
                       <motion.div
                         initial="hidden"
                         animate="visible"
                         variants={containerVariants}
                         className="space-y-6"
                       >
-                        {/* Plan Summary Card */}
                         <div className="relative overflow-hidden rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-teal-500/5 to-transparent p-5">
                           <div className="flex items-start justify-between relative z-10">
                             <div className="space-y-1">
@@ -508,7 +564,6 @@ export function UpsertGoalDialog({
                           </p>
                         </div>
 
-                        {/* Tasks List (Abbreviated for brevity, kept from previous) */}
                         <div>
                           <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
                             <Zap className="w-4 h-4 text-amber-400" />
@@ -533,46 +588,14 @@ export function UpsertGoalDialog({
           ) : (
             // Edit Mode
             <form id="edit-form" onSubmit={handleManualSubmit} className="space-y-5">
-              {/* --- DREAM BOARD IMAGE SECTION (Shared) --- */}
-              <div className="space-y-2">
-                <Label className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover Art</span>
-                  {imageUrl && (
-                    <button type="button" onClick={() => setImageUrl("")} className="text-xs text-red-400 hover:text-red-300">Remove</button>
-                  )}
-                </Label>
-                {imageUrl ? (
-                  <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 group">
-                    <img src={imageUrl} alt="Cover" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button type="button" size="sm" variant="secondary" onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                        <RefreshCw className={cn("w-3 h-3 mr-2", isGeneratingImage && "animate-spin")} /> Regenerate
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all"
-                    onClick={handleGenerateImage}
-                    disabled={isGeneratingImage || (!title && !description)}
-                  >
-                    {isGeneratingImage ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Painting Dream...</>
-                    ) : (
-                      <><Sparkles className="w-4 h-4 mr-2" /> Generate AI Cover Art</>
-                    )}
-                  </Button>
-                )}
-              </div>
 
-              {/* Rest of Edit Form (Title, Category, etc.) */}
+              {/* DREAM BOARD IMAGE SECTION */}
+              {renderImageSection()}
+
               <div className="space-y-2">
                 <Label>Goal Title</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary/30" required />
               </div>
-              {/* ... other fields ... */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
@@ -618,7 +641,8 @@ export function UpsertGoalDialog({
                 disabled={isGenerating || !aiPrompt.trim()}
                 className={cn("text-white shadow-lg transition-all", aiMode === "fast" ? "bg-teal-600" : "bg-indigo-600")}
               >
-                {isGenerating ? "Architecting..." : "Generate Plan"}
+                {/* Text is hidden when generating, animation speaks for itself */}
+                {isGenerating ? "Building..." : "Generate Plan"}
               </Button>
             ) : (
               <Button
@@ -634,7 +658,7 @@ export function UpsertGoalDialog({
             <Button
               type="submit"
               form={mode === "create" ? "manual-form" : "edit-form"}
-              disabled={isLoading}
+              disabled={isLoading || isGeneratingImage}
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : (mode === "create" ? "Create Goal" : "Save Changes")}
             </Button>

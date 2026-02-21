@@ -1,6 +1,5 @@
 "use client";
 
-
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskItem } from "@/components/tasks/task-item";
+import { UpsertGoalDialog } from "@/components/goals/upsert-goal-dialog"; // Added import
 import {
   ArrowLeft,
   Plus,
@@ -20,7 +20,8 @@ import {
   ListTodo,
   Clock,
   Trophy,
-  AlertCircle
+  AlertCircle,
+  Edit // Added Edit icon
 } from "lucide-react";
 import { toast } from "sonner";
 import { GoalDetailSkeleton } from "@/components/goals/goal-detail-skeleton";
@@ -34,6 +35,7 @@ export default function GoalDetailPage({
   const router = useRouter();
   const { userId } = useAuth();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // Added state for Edit Dialog
 
   const goal = useQuery(
     api.goals.getById,
@@ -102,20 +104,31 @@ export default function GoalDetailPage({
           <span className="font-medium">Back to Goals</span>
         </button>
 
-        <Button
-            variant="ghost"
-            onClick={handleDelete}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Goal
-        </Button>
+        {/* Action Buttons: Edit and Delete */}
+        <div className="flex items-center gap-2">
+          <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(true)}
+              className="border-primary/20 hover:bg-primary/10 transition-colors"
+          >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Goal
+          </Button>
+          <Button
+              variant="ghost"
+              onClick={handleDelete}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Goal
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
         
         {/* Left Column: Main Info & Tasks */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-5">
             
             {/* Header Card */}
             <div className="glass-card p-8 rounded-3xl border border-secondary/20 relative overflow-hidden group">
@@ -125,9 +138,9 @@ export default function GoalDetailPage({
                     style={{ background: `linear-gradient(90deg, ${goal.color}, ${goal.color}22)` }} 
                 />
                 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-col items-start gap-2">
                             <span
                                 className="inline-flex items-center px-3 py-1 rounded-full text-xs md:font-semibold tracking-wide"
                                 style={{
@@ -143,7 +156,7 @@ export default function GoalDetailPage({
                             </h1>
                         </div>
                         <div 
-                            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
+                            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
                             style={{ backgroundColor: goal.color, boxShadow: `0 8px 30px -4px ${goal.color}66` }}
                         >
                             <Target className="w-7 h-7 text-white" />
@@ -151,12 +164,12 @@ export default function GoalDetailPage({
                     </div>
 
                     {goal.description && (
-                        <p className="text-xs md:text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                        <p className="text-xs md:text-md text-muted-foreground leading-relaxed max-w-2xl mt-2">
                             {goal.description}
                         </p>
                     )}
 
-                    <div className="pt-3 border-t border-border/40">
+                    <div className="pt-1 mt-3 border-t border-border/40">
                         <div className="flex items-end justify-between mb-3">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground mb-1">Progress Tracker</p>
@@ -186,7 +199,7 @@ export default function GoalDetailPage({
                     </h2>
                     <button
                         onClick={() => setIsTaskDialogOpen(true)}
-            className="flex items-center bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
+                        className="flex items-center bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
                     >
                         <Plus className="w-4 h-4" />
                         New Task
@@ -319,6 +332,23 @@ export default function GoalDetailPage({
         onOpenChange={setIsTaskDialogOpen}
         userId={userId!}
         preselectedGoalId={goal._id}
+      />
+
+      {/* Edit Goal Dialog */}
+      <UpsertGoalDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        userId={userId!}
+        mode="edit"
+        initialData={{
+          _id: goal._id,
+          title: goal.title,
+          description: goal.description,
+          category: goal.category,
+          targetDate: goal.targetDate,
+          color: goal.color,
+          imageUrl: goal.imageUrl,
+        }}
       />
     </div>
   );

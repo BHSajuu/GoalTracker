@@ -18,6 +18,7 @@ interface TextNoteCardProps {
 
 export function TextNoteCard({ note }: TextNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const removeNote = useMutation(api.notes.remove);
 
   const handleRemove = async () => {
@@ -28,6 +29,11 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
       toast.error("Failed to delete note");
     }
   };
+
+  const content = note.content || "";
+  const MAX_LENGTH = 150;
+  const isLongNote = content.length > MAX_LENGTH;
+  const displayText = isExpanded || !isLongNote ? content : `${content.substring(0, MAX_LENGTH)}...`;
 
   return (
     <>
@@ -59,8 +65,19 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 pt-2">
-          <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+        {/* Made CardContent clickable to toggle expansion */}
+        <CardContent
+          className={`p-4 pt-2 ${isLongNote ? "cursor-pointer" : ""}`}
+          onClick={() => isLongNote && setIsExpanded(!isExpanded)}
+        >
+          <p className="text-sm text-foreground whitespace-pre-wrap transition-all">
+            {displayText}
+          </p>
+          {isLongNote && (
+            <span className="text-xs text-primary mt-2 inline-block font-medium hover:underline">
+              {isExpanded ? "Show less" : "Show more"}
+            </span>
+          )}
         </CardContent>
       </Card>
 

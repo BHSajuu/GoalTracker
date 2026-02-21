@@ -443,7 +443,7 @@ export function UpsertNoteDialog({
                           transition={{ duration: 0.2 }}
                           className="space-y-6"
                         >
-                          {/*  Vision Analysis Banner  */}
+                          {/* Vision Analysis Banner  */}
                           {selectedFiles.length > 0 && !isAnalyzing && (
                             <motion.div
                               initial={{ opacity: 0, y: -10 }}
@@ -469,40 +469,73 @@ export function UpsertNoteDialog({
                             </motion.div>
                           )}
 
+                          {/* HIGHLY ANIMATED SCANNING STATE */}
                           {isAnalyzing && (
                             <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="p-4 bg-secondary/30 border border-white/10 rounded-xl flex items-center justify-center gap-3 text-sm text-muted-foreground"
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="relative w-full h-48 rounded-2xl overflow-hidden bg-black/40 border border-indigo-500/30 flex flex-col items-center justify-center group"
                             >
-                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                              Analyzing image with Llama Vision...
+                              {/* Scanning Laser Animation */}
+                              <motion.div
+                                animate={{ top: ["-20%", "120%"] }}
+                                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                                className="absolute left-0 right-0 h-24 bg-gradient-to-b from-transparent via-indigo-500/20 to-indigo-500/50 border-b-2 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.6)] z-10"
+                              />
+
+                              {/* Blurred Background Image for depth */}
+                              {previewUrls.length > 0 && (
+                                <div className="absolute inset-0 w-full h-full opacity-40 blur-[2px] scale-105 transition-transform">
+                                  <img src={previewUrls[0]} alt="Analyzing preview" className="w-full h-full object-contain" />
+                                </div>
+                              )}
+
+                              {/* Central Icon */}
+                              <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                                className="z-20 p-4 bg-indigo-950/60 backdrop-blur-md rounded-full border border-indigo-500/50 mb-3 shadow-lg shadow-indigo-500/20"
+                              >
+                                <ScanEye className="w-8 h-8 text-indigo-400" />
+                              </motion.div>
+
+                              <p className="z-20 text-sm font-semibold text-indigo-200 tracking-wide">
+                                Llama Vision is scanning...
+                              </p>
+                              <p className="z-20 text-xs text-indigo-400/80 mt-1">
+                                Extracting text and structural data
+                              </p>
                             </motion.div>
                           )}
 
-                          <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                            ref={fileInputRef}
-                            onChange={handleFileSelect}
-                          />
+                          {/* Keep original uploader hidden while scanning */}
+                          {!isAnalyzing && (
+                            <>
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                              />
 
-                          <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className="group border-2 border-dashed border-white/10 rounded-2xl h-38 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all bg-secondary/5"
-                          >
-                            <div className="p-4 bg-background rounded-full group-hover:scale-110 transition-transform border border-white/5 shadow-sm">
-                              <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Click to upload</p>
-                              <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, WEBP</p>
-                            </div>
-                          </div>
+                              <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="group border-2 border-dashed border-white/10 rounded-2xl h-38 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all bg-secondary/5"
+                              >
+                                <div className="p-4 bg-background rounded-full group-hover:scale-110 transition-transform border border-white/5 shadow-sm">
+                                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Click to upload</p>
+                                  <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, WEBP</p>
+                                </div>
+                              </div>
+                            </>
+                          )}
 
-                          {(existingImageUrls.length > 0 || previewUrls.length > 0) && (
+                          {(existingImageUrls.length > 0 || previewUrls.length > 0) && !isAnalyzing && (
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">Gallery</label>
                               <div className="grid grid-cols-4 gap-3">
