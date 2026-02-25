@@ -259,3 +259,66 @@ export const generateGoalImage = action({
     }
   },
 });
+
+
+export const suggestDescription = action({
+  args: {
+    title: v.string(),
+    type: v.union(v.literal("goal"), v.literal("task")),
+    goalTitle: v.optional(v.string()),
+    goalDescription: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.NVIDIA_LLAMA_INSTRUCT_API_KEY;
+
+    if (!apiKey) {
+      throw new Error("Missing NVIDIA API Key in Environment Variables.");
+    }
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    });
+
+    const systemPrompt = args.type === "goal"
+      ? `You are an expert productivity coach. The user will provide a goal title. Write a short, inspiring, and actionable description in 120 characters max.
+      
+      CRITICAL INSTRUCTIONS:
+      1. OUTPUT ONLY THE FINAL DESCRIPTION.
+      2. DO NOT use introductory phrases (like "Here is a description").
+      3. DO NOT use quotation marks around the output.`
+      : `You are an expert productivity coach. The user will provide a task title. Write a short, clear, and actionable description detailing how to execute this task in 80 characters max.
+        
+      ${args.goalTitle ? `CONTEXT: This task belongs to the overarching goal titled: "${args.goalTitle}".` : ''}
+      ${args.goalDescription ? `GOAL DESCRIPTION: "${args.goalDescription}".` : ''}
+      Use this context to make the task description more relevant.
+      
+      CRITICAL INSTRUCTIONS:
+      1. OUTPUT ONLY THE FINAL DESCRIPTION.
+      2. DO NOT use introductory phrases.
+      3. DO NOT use quotation marks around the output.`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "meta/llama-3.1-8b-instruct",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: args.title }
+        ],
+        temperature: 0.7,
+        max_tokens: 150, 
+      });
+
+      let content = response.choices[0].message.content?.trim() || "";
+
+      // Clean up hallucinated quotes if they appear
+      content = content.replace(/^["']|["']$/g, "").trim();
+
+      return content;
+
+    } catch (error: any) {
+      console.error("🔥 AI Suggestion Error:", error);
+      throw new Error("Failed to generate description.");
+    }
+  },
+});

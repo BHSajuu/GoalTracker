@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -24,11 +24,11 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, CheckSquare, Target, Clock,
-  CalendarDays, AlignLeft, AlertCircle, LayoutList
+  CalendarDays, AlignLeft, AlertCircle, LayoutList, Wand2, Bot
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface UpsertTaskDialogProps {
   open: boolean;
@@ -66,12 +66,14 @@ export function UpsertTaskDialog({
   const [estMinutes, setEstMinutes] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
 
   //  Data & Mutations 
   const goals = useQuery(api.goals.getByUser, { userId });
   const createTask = useMutation(api.tasks.create);
   const updateTask = useMutation(api.tasks.update);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
+  const suggestDescription = useAction(api.ai.suggestDescription); 
 
   useEffect(() => {
     if (open) {
@@ -104,6 +106,32 @@ export function UpsertTaskDialog({
       }
     }
   }, [open, mode, initialData, preselectedGoalId]);
+
+const handleSuggestDescription = async () => {
+    if (!title.trim()) {
+      toast.error("Please enter a Task Title first.");
+      return;
+    }
+
+    const selectedGoal = goals?.find((g) => g._id === goalId);
+
+    setIsSuggestingDesc(true);
+    try {
+      const suggestion = await suggestDescription({ 
+        title: title.trim(), 
+        type: "task",
+        goalTitle: selectedGoal?.title,
+        goalDescription: selectedGoal?.description 
+      });
+      setDescription(suggestion);
+      toast.success("Task description auto-filled!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to suggest description.");
+    } finally {
+      setIsSuggestingDesc(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,18 +356,91 @@ export function UpsertTaskDialog({
               </div>
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-foreground/90">
-                <AlignLeft className="w-4 h-4 text-muted-foreground" /> Description
-              </Label>
-              <Textarea
-                placeholder="Add details, sub-steps, or notes..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="bg-secondary/30 border-white/10 resize-none min-h-[100px]"
-              />
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-foreground/90">
+                  <AlignLeft className="w-4 h-4 text-muted-foreground" /> Description
+                </Label>
+
+                {/* Animated Auto-Fill Button */}
+                <button
+                  onClick={handleSuggestDescription}
+                  disabled={isSuggestingDesc || !title.trim()}
+                  className={cn(
+                    "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
+                    isSuggestingDesc
+                      ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
+                      : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] border border-transparent hover:border-blue-500/20"
+                  )}
+                >
+                  {!isSuggestingDesc && (
+                    <motion.div
+                      animate={{ x: ["-100%", "200%"] }}
+                      transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
+                      className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"
+                    />
+                  )}
+
+                  <div className="flex items-center gap-1.5 relative z-10">
+                    {isSuggestingDesc ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                    )}
+                    {isSuggestingDesc ? "Synthesizing..." : "AI Auto-fill"}
+                  </div>
+                </button>
+              </div>
+
+              {/* Textarea with Holographic AI Overlay */}
+              <div className="relative rounded-md overflow-hidden group">
+                <Textarea
+                  placeholder="Add details, sub-steps, or notes..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={isSuggestingDesc}
+                  className={cn(
+                    "bg-secondary/30 border-white/10 resize-none min-h-[100px] transition-all duration-300",
+                    isSuggestingDesc && "opacity-30 blur-[2px]"
+                  )}
+                />
+
+                <AnimatePresence>
+                  {isSuggestingDesc && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/40 backdrop-blur-[1px] border border-blue-500/30 rounded-md"
+                    >
+                      <motion.div
+                        animate={{ top: ["0%", "100%", "0%"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                        className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_12px_rgba(59,130,246,1)] z-20"
+                      />
+
+                      <div className="flex flex-col items-center gap-2">
+                        <motion.div
+                          animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+                          transition={{ repeat: Infinity, duration: 1 }}
+                          className="p-2 bg-blue-500/20 rounded-full border border-blue-500/40"
+                        >
+                          <Bot className="w-5 h-5 text-blue-400" />
+                        </motion.div>
+                        <motion.span
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ repeat: Infinity, duration: 1.5 }}
+                          className="text-[10px] font-bold tracking-widest text-blue-400 uppercase bg-background/80 px-2 py-0.5 rounded-full"
+                        >
+                          Writing
+                        </motion.span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
+
           </form>
         </div>
 

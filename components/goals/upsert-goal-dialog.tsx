@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Target, Sparkles, Bot, CheckCircle2,
-  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, ImageIcon, RefreshCw
+  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, ImageIcon, RefreshCw, Wand2, AlignLeft
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,7 @@ export function UpsertGoalDialog({
   const [aiMode, setAiMode] = useState<"fast" | "smart">("fast");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
 
   //  Mutations & Actions 
@@ -90,6 +91,7 @@ export function UpsertGoalDialog({
   const createGoalWithTasks = useMutation(api.goals.createGoalWithTasks);
   const generatePlan = useAction(api.ai.generateGoalPlan);
   const generateImage = useAction(api.ai.generateGoalImage);
+  const suggestDescription = useAction(api.ai.suggestDescription);
 
   useEffect(() => {
     if (open) {
@@ -137,6 +139,25 @@ export function UpsertGoalDialog({
       toast.error("Failed to generate image.");
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const handleSuggestDescription = async () => {
+    if (!title.trim()) {
+      toast.error("Please enter a Goal Title first.");
+      return;
+    }
+
+    setIsSuggestingDesc(true);
+    try {
+      const suggestion = await suggestDescription({ title: title.trim(), type: "goal" });
+      setDescription(suggestion);
+      toast.success("Description auto-filled!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to suggest description.");
+    } finally {
+      setIsSuggestingDesc(false);
     }
   };
 
@@ -229,7 +250,7 @@ export function UpsertGoalDialog({
     exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
   };
 
-  // Reusable Image Section component to prevent code duplication
+  // Reusable Image Section component
   const renderImageSection = () => (
     <div className="space-y-2">
       <Label className="flex items-center justify-between">
@@ -240,24 +261,14 @@ export function UpsertGoalDialog({
       </Label>
 
       {isGeneratingImage ? (
-        // Highly Animated Loading State for Image Generation
         <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gradient-to-br from-primary/5 to-primary/20 border border-primary/30 flex flex-col items-center justify-center group">
-          <motion.div
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-            className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-10"
-          />
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className="z-20 p-3 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/50 mb-2 shadow-lg shadow-primary/20"
-          >
+          <motion.div animate={{ x: ["-100%", "200%"] }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-10" />
+          <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="z-20 p-3 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/50 mb-2 shadow-lg shadow-primary/20">
             <Palette className="w-5 h-5 text-primary" />
           </motion.div>
           <p className="z-20 text-sm font-semibold text-primary tracking-wide">Painting Dream...</p>
         </div>
       ) : imageUrl ? (
-        // Display Generated Image
         <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 group">
           <img src={imageUrl} alt="Cover" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -267,19 +278,102 @@ export function UpsertGoalDialog({
           </div>
         </div>
       ) : (
-        // Empty State / Generate Button
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all"
-            onClick={handleGenerateImage}
-            disabled={!title && !description && !aiPrompt}
-          >
+          <Button type="button" variant="outline" className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all" onClick={handleGenerateImage} disabled={!title && !description && !aiPrompt}>
             <Sparkles className="w-4 h-4 mr-2" /> Generate AI Cover Art
           </Button>
         </div>
       )}
+    </div>
+  );
+
+  // Reusable Description Section with High-Quality Animation
+  const renderDescriptionSection = () => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2"><AlignLeft className="w-4 h-4 text-muted-foreground" /> Description</Label>
+        
+        {/* Animated Auto-Fill Button */}
+        <button
+          onClick={handleSuggestDescription}
+          disabled={isSuggestingDesc || !title.trim()}
+          className={cn(
+            "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
+            isSuggestingDesc 
+              ? "bg-blue-600/20 text-blue-400 border border-blue-500/30" 
+              : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] border border-transparent hover:border-blue-500/20"
+          )}
+        >
+          {/* Button Shine Effect */}
+          {!isSuggestingDesc && (
+             <motion.div 
+               animate={{ x: ["-100%", "200%"] }} 
+               transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
+               className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0" 
+             />
+          )}
+          
+          <div className="flex items-center gap-1.5 relative z-10">
+            {isSuggestingDesc ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Wand2 className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+            )}
+            {isSuggestingDesc ? "Synthesizing..." : "AI Auto-fill"}
+          </div>
+        </button>
+      </div>
+
+      {/* Textarea with Holographic AI Overlay */}
+      <div className="relative rounded-md overflow-hidden group">
+        <Textarea
+          placeholder="Describe your goal..."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={isSuggestingDesc}
+          className={cn(
+            "bg-secondary/30 border-white/10 resize-none min-h-[100px] transition-all duration-300",
+            isSuggestingDesc && "opacity-30 blur-[2px]"
+          )}
+        />
+        
+        {/* AI Processing Overlay */}
+        <AnimatePresence>
+          {isSuggestingDesc && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/40 backdrop-blur-[1px] border border-blue-500/30 rounded-md"
+            >
+              {/* Scanning Laser Line */}
+              <motion.div
+                animate={{ top: ["0%", "100%", "0%"] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_12px_rgba(59,130,246,1)] z-20"
+              />
+              
+              {/* Pulsing Icon */}
+              <div className="flex flex-col items-center gap-2">
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }} 
+                  transition={{ repeat: Infinity, duration: 1 }}
+                  className="p-2 bg-blue-500/20 rounded-full border border-blue-500/40"
+                >
+                  <Bot className="w-5 h-5 text-blue-400" />
+                </motion.div>
+                <motion.span 
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="text-[10px] font-bold tracking-widest text-blue-400 uppercase bg-background/80 px-2 py-0.5 rounded-full"
+                >
+                  Writing
+                </motion.span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 
@@ -318,7 +412,7 @@ export function UpsertGoalDialog({
         </div>
 
         {/* Content Section */}
-        <div className="p-6 pt-4 h-[65vh] md:h-auto md:max-h-[65vh] overflow-y-auto custom-scrollbar">
+        <div className="p-6 pt-4 h-[65vh] md:h-auto md:max-h-[75vh] overflow-y-auto custom-scrollbar">
           {mode === "create" ? (
             <Tabs
               value={activeTab}
@@ -346,7 +440,6 @@ export function UpsertGoalDialog({
                   >
                     <form id="manual-form" onSubmit={handleManualSubmit} className="space-y-5">
 
-                      {/* DREAM BOARD IMAGE SECTION */}
                       {renderImageSection()}
 
                       <div className="space-y-2">
@@ -382,17 +475,9 @@ export function UpsertGoalDialog({
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea
-                          placeholder="Describe your goal..."
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          className="bg-secondary/30 border-white/10 resize-none min-h-[100px]"
-                        />
-                      </div>
+                      {renderDescriptionSection()}
 
-                      <div className="space-y-3">
+                      <div className="space-y-3 mb-5">
                         <Label className="flex items-center gap-2"><Palette className="w-4 h-4 text-muted-foreground" /> Color Theme</Label>
                         <div className="flex flex-wrap gap-3">
                           {colorOptions.map((c) => (
@@ -415,7 +500,7 @@ export function UpsertGoalDialog({
                   </motion.div>
                 </TabsContent>
 
-                {/* AI TAB */}
+                {/* AI TAB CONTENT */}
                 <TabsContent value="ai" key="ai" className="mt-0 outline-none h-full" asChild>
                   <motion.div
                     key="ai"
@@ -425,26 +510,22 @@ export function UpsertGoalDialog({
                     className="flex flex-col h-full"
                   >
                     {isGenerating ? (
-                      // HIGHLY ANIMATED LOADING STATE
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="flex flex-col items-center justify-center h-full min-h-[300px] gap-6"
                       >
                         <div className="relative w-32 h-32 flex items-center justify-center">
-                          {/* Outer spinning ring */}
                           <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
                             className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                           />
-                          {/* Inner spinning ring */}
                           <motion.div
                             animate={{ rotate: -360 }}
                             transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
                             className="absolute inset-3 rounded-full border-b-2 border-l-2 border-teal-400/80 shadow-[0_0_15px_rgba(45,212,191,0.3)]"
                           />
-                          {/* Center Bot */}
                           <motion.div
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
@@ -452,8 +533,6 @@ export function UpsertGoalDialog({
                           >
                             <Image src="/ai2.png" alt="AI Architect" width={66} height={66} className="w-8 h-8 text-blue-400" />
                           </motion.div>
-
-                          {/* Scanning laser */}
                           <motion.div
                             animate={{ top: ["0%", "100%", "0%"] }}
                             transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -471,7 +550,6 @@ export function UpsertGoalDialog({
                         </div>
                       </motion.div>
                     ) : !generatedPlan ? (
-                      // Input State
                       <div className="flex flex-col gap-6 h-full justify-start pt-2">
                         <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-blue-600/30 via-teal-500/20 to-indigo-600/30">
                           <div className="rounded-[15px] bg-background/95 backdrop-blur-xl p-6 relative overflow-hidden">
@@ -526,7 +604,6 @@ export function UpsertGoalDialog({
                         </div>
                       </div>
                     ) : (
-                      // Review State 
                       <motion.div
                         initial="hidden"
                         animate="visible"
@@ -589,7 +666,6 @@ export function UpsertGoalDialog({
             // Edit Mode
             <form id="edit-form" onSubmit={handleManualSubmit} className="space-y-5">
 
-              {/* DREAM BOARD IMAGE SECTION */}
               {renderImageSection()}
 
               <div className="space-y-2">
@@ -606,10 +682,9 @@ export function UpsertGoalDialog({
                   <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="bg-secondary/30" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-secondary/30" />
-              </div>
+              
+              {renderDescriptionSection()}
+
               <div className="space-y-3">
                 <Label>Color Theme</Label>
                 <div className="flex flex-wrap gap-3">
@@ -641,7 +716,6 @@ export function UpsertGoalDialog({
                 disabled={isGenerating || !aiPrompt.trim()}
                 className={cn("text-white shadow-lg transition-all", aiMode === "fast" ? "bg-teal-600" : "bg-indigo-600")}
               >
-                {/* Text is hidden when generating, animation speaks for itself */}
                 {isGenerating ? "Building..." : "Generate Plan"}
               </Button>
             ) : (
