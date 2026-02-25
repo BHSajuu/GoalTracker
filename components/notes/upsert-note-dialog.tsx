@@ -33,6 +33,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
+// Import the new Rich Text Editor component
+import { RichTextEditor } from "./rich-text-editor";
+
 interface UpsertNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -163,10 +166,10 @@ export function UpsertNoteDialog({
         });
 
         if (result) {
-          // 3. Populate Text Tab
-          setText((prev) => prev ? prev + "\n\n AI Analysis \n" + result : result);
+          // 3. Populate Text Tab (formatting it nicely for HTML output)
+          setText((prev) => prev ? prev + "<br><br><strong>AI Analysis</strong><br>" + result.replace(/\n/g, '<br>') : result.replace(/\n/g, '<br>'));
           toast.success("Analysis complete! Switched to Text tab.");
-          setActiveTab("text"); // Switch to text tab to show result
+          setActiveTab("text");
         }
         setIsAnalyzing(false);
       };
@@ -180,7 +183,7 @@ export function UpsertNoteDialog({
   };
 
   const handleSubmit = async () => {
-    if (activeTab === "text" && !text.trim()) return;
+    if (activeTab === "text" && (!text.trim() || text === "<p></p>")) return;
     if (activeTab === "link" && !link.trim()) return;
     if (activeTab === "code" && !codeSnippet.trim()) return;
     if (activeTab === "image" && selectedFiles.length === 0 && existingImageUrls.length === 0) return;
@@ -338,22 +341,15 @@ export function UpsertNoteDialog({
                           transition={{ duration: 0.2 }}
                           className="space-y-3"
                         >
-                          <div className="flex justify-between items-center">
-                            <label className="text-xs font-medium text-muted-foreground ml-1 uppercase tracking-wider flex items-center gap-2">
-                              <Type className="w-3 h-3" /> Note Content
-                            </label>
-                            <span className="text-[10px] text-muted-foreground bg-secondary/30 px-2 py-0.5 rounded-full">
-                              Markdown Supported
-                            </span>
-                          </div>
-                          <Textarea
-                            placeholder="Type your thoughts here..."
-                            value={text}
-                            onChange={(e) => setText(e.target.value)}
-                            className="min-h-75 resize-none bg-secondary/30 border-white/10 focus:border-primary/50 text-base leading-relaxed p-4 rounded-xl"
+                          
+                          {/* Rich Text Editor Component replacing standard Textarea */}
+                          <RichTextEditor
+                            content={text}
+                            onChange={(newContent) => setText(newContent)}
                           />
+
                         </motion.div>
-                      )}
+                      )}  
 
                       {/* CODE TAB */}
                       {activeTab === "code" && (
