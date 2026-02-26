@@ -1,12 +1,12 @@
 "use client";
 
-import React from "react"
-
+import React from "react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
+import { FocusTimerProvider } from "@/components/tasks/focus-timer"; // Import the Provider
 
 export default function DashboardLayout({
   children,
@@ -38,17 +38,20 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background grid-pattern">
-      {/* Desktop Sidebar */}
-      <DashboardSidebar />
-      
-      {/* Main Content Area */}
-      <div className="lg:pl-64 ">
-        <DashboardHeader />
-        <main className="p-4 md:p-6 lg:p-8">
-          {children}
-        </main>
+    // Wrap the entire app structure in the Provider
+    <FocusTimerProvider>
+      <div className="min-h-screen bg-background grid-pattern">
+        {/* Desktop Sidebar */}
+        <DashboardSidebar />
+        
+        {/* Main Content Area */}
+        <div className="lg:pl-64 ">
+          <DashboardHeader />
+          <main className="p-4 md:p-6 lg:p-8">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </FocusTimerProvider>
   );
 }

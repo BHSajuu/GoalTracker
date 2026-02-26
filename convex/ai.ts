@@ -17,24 +17,24 @@ export const generateGoalPlan = action({
 
 
     if (args.mode === "fast") {
-      if (!process.env.NVIDIA_MINIMAXAI_API_KEY) {
-        throw new Error("Missing NVIDIA_MINIMAXAI_API_KEY in Environment Variables.");
+      if (!process.env.NVIDIA_LLAMA_INSTRUCT_API_KEY) {
+        throw new Error("Missing NVIDIA_LLAMA_INSTRUCT_API_KEY in Environment Variables.");
       }
 
-      modelId = "minimaxai/minimax-m2";
-      temperature = 1;
-      maxTokens = 8192;
+      modelId = "meta/llama-3.1-8b-instruct";
+      temperature = 0.5;
+      maxTokens = 2048;
       openai = new OpenAI({
-        apiKey: process.env.NVIDIA_MINIMAXAI_API_KEY,
+        apiKey: process.env.NVIDIA_LLAMA_INSTRUCT_API_KEY,
         baseURL: "https://integrate.api.nvidia.com/v1",
       });
     } else {
-      if (!process.env.NVIDIA_MISTRAL_API_KEY) {
-        throw new Error("Missing NVIDIA_MISTRAL_API_KEY in Environment Variables.");
+      if (!process.env.NVIDIA_STEPFUN_AI_API_KEY) {
+        throw new Error("Missing NVIDIA_STEPFUN_AI_API_KEY in Environment Variables.");
       }
 
       modelId = "stepfun-ai/step-3.5-flash";
-      temperature = 1;
+      temperature = 0.8;
       maxTokens = 16384;
       openai = new OpenAI({
         apiKey: process.env.NVIDIA_STEPFUN_AI_API_KEY,
@@ -68,7 +68,7 @@ export const generateGoalPlan = action({
             "title": "Refined Goal Title",
             "description": "Inspiring summary",
             "category": "Category Name (choose from standard list)",
-            "color": "Hex Code",
+            "color": "A unique hex color code (e.g., #FF5733)",
             "targetDate": "MM-DD-YYYY",
             "tasks": [
               {
@@ -78,17 +78,15 @@ export const generateGoalPlan = action({
                 "estimatedTime": number (minutes),
                 "dueDateOffset": number (0 for today, 1 for tomorrow, etc.)
               }
-            ]
+            ] 
           }
 
           Available Categories:
-          - AI & ML, Web-Dev, Mobile-App-Dev, Data-Science & Analytics
+          - AI & ML, Web-Dev, Mobile-App-Dev, Data-Science, Analytics
           - Cloud & DevOps, Cybersecurity, Programming, CS core
-          - Semester-Exams, Competitive-Exams, School & College Studies
-          - Career & Job Preparation, Work & Professional Projects
-          - Business & Startup, Personal Development, Health & Fitness
-          - Mental Wellness, Finance & Investing, Productivity & Habits
-          - Creative, Language Learning, Hobbies, Other
+          - Semester-Exams, Competitive-Exams
+          - Work & Professional Projects
+          - Finance & Investing, Creative, Other
 
           PLANNING LOGIC:
           1. **Coverage:** You MUST generate a task for EVERY day from offset 0 up to the target date.
@@ -306,7 +304,7 @@ export const suggestDescription = action({
           { role: "user", content: args.title }
         ],
         temperature: 0.7,
-        max_tokens: 150, 
+        max_tokens: 150,
       });
 
       let content = response.choices[0].message.content?.trim() || "";

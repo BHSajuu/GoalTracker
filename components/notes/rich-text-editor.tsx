@@ -4,12 +4,60 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
+import {TextStyle} from '@tiptap/extension-text-style';
+import { Extension } from '@tiptap/core';
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
-  List, ListOrdered, Heading1, Heading2,Quote,
-  Undo, Redo, Eraser,
+  List, ListOrdered, Quote,
+  Undo, Redo
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
+
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize?.replace(/['"]+/g, ''),
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize: fontSize => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize })
+          .run();
+      },
+      unsetFontSize: () => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize: null })
+          .removeEmptyTextStyle()
+          .run();
+      },
+    };
+  },
+});
 
 // Helper component for identical button styling
 const TabButton = ({ 
@@ -37,6 +85,9 @@ const TabButton = ({
 const MenuBar = ({ editor }: { editor: any }) => {
   if (!editor) return null;
 
+  // Get current font size or fallback to '16px' (Normal)
+  const currentFontSize = editor.getAttributes('textStyle').fontSize || '16px';
+
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 p-2.5 bg-background/80 backdrop-blur-xl sticky top-0 z-20 shadow-sm cursor-default">
       {/* History */}
@@ -45,19 +96,29 @@ const MenuBar = ({ editor }: { editor: any }) => {
         <TabButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}><Redo className="h-4 w-4" /></TabButton>
       </div>
 
+      {/* Font Size Dropdown */}
+      <div className="flex items-center gap-1 pr-3 border-r border-white/10">
+        <select
+          className="h-8 bg-transparent text-sm font-medium border border-transparent hover:bg-secondary/80 rounded-md px-2 text-muted-foreground hover:text-foreground focus:outline-none transition-all cursor-pointer"
+          value={currentFontSize}
+          onChange={(e) => editor.chain().focus().setFontSize(e.target.value).run()}
+        >
+          <option value="12px" className="bg-background text-foreground">12px</option>
+          <option value="14px" className="bg-background text-foreground">14px</option>
+          <option value="16px" className="bg-background text-foreground">Normal</option>
+          <option value="18px" className="bg-background text-foreground">18px</option>
+          <option value="20px" className="bg-background text-foreground">20px</option>
+          <option value="24px" className="bg-background text-foreground">24px</option>
+          <option value="30px" className="bg-background text-foreground">30px</option>
+        </select>
+      </div>
+
       {/* Formatting */}
       <div className="flex items-center gap-1 pr-3 border-r border-white/10">
         <TabButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')}><Bold className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')}><Italic className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')}><UnderlineIcon className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')}><Strikethrough className="h-4 w-4" /></TabButton>
-        <TabButton onClick={() => editor.chain().focus().unsetAllMarks().run()}><Eraser className="h-4 w-4" /></TabButton>
-      </div>
-      
-      {/* Headings */}
-      <div className="flex items-center gap-1 pr-3 border-r border-white/10">
-        <TabButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })}><Heading1 className="h-4 w-4" /></TabButton>
-        <TabButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })}><Heading2 className="h-4 w-4" /></TabButton>
       </div>
       
       {/* Lists & Blocks */}
@@ -84,6 +145,8 @@ export function RichTextEditor({
         codeBlock: { HTMLAttributes: { class: 'custom-code-block' } },
       }),
       Underline,
+      TextStyle, // Required for inline styles
+      FontSize,  // Our custom extension
       Placeholder.configure({
         placeholder: 'What are you thinking? Start writing your amazing note...',
         emptyEditorClass: 'is-editor-empty',
@@ -96,18 +159,28 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        // Kept clean, moved padding and height to the CSS block for strict enforcement
         className: 'focus:outline-none outline-none border-none prose-p:my-2 text-base text-foreground/90 leading-relaxed',
       },
     },
   });
+
+
+  // Force Tiptap to update its content if the external `content` prop changes
+  useEffect(() => {
+    if (editor && content !== undefined && !editor.isDestroyed) {
+      const currentContent = editor.getHTML();
+      // Only update if the content actually differs to avoid resetting cursor position while typing
+      if (content !== currentContent && content !== "<p></p>") {
+        editor.commands.setContent(content);
+      }
+    }
+  }, [content, editor]);
 
   return (
     <div className="premium-editor relative border border-white/10 rounded-2xl overflow-hidden bg-secondary/10 shadow-inner flex flex-col">
       
       {/* PREMIUM SCOPED CSS */}
       <style dangerouslySetInnerHTML={{__html: `
-        /* KILL BROWSER FOCUS RINGS COMPLETELY */
         .premium-editor .tiptap:focus,
         .premium-editor .ProseMirror:focus,
         .premium-editor .ProseMirror-focused {
@@ -116,9 +189,8 @@ export function RichTextEditor({
           border: none !important;
         }
 
-        /* FORCE PADDING AND HEIGHT SO IT NEVER TOUCHES THE EDGES */
         .premium-editor .ProseMirror {
-          padding: 1rem !important; /* Forces 32px top/bottom and 40px left/right padding */
+          padding: 1rem !important; 
           min-height: 275px !important;
           height: 100%;
         }
@@ -218,9 +290,8 @@ export function RichTextEditor({
 
       <MenuBar editor={editor} />
 
-      {/* CHANGED: Added cursor-text and onClick handler so clicking ANYWHERE in this box focuses the editor */}
       <div 
-        className="flex-1 custom-scrollbar overflow-y-auto  min-h-[275px] cursor-text"
+        className="flex-1 custom-scrollbar overflow-y-auto min-h-[275px] cursor-text"
         onClick={() => {
           if (editor && !editor.isFocused) {
             editor.chain().focus().run();

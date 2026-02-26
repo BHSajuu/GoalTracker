@@ -27,8 +27,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpsertTaskDialog } from "./upsert-task-dialog";
-import { FocusTimer } from "./focus-timer";
 import Image from "next/image";
+import { useFocusTimer } from "./focus-timer"; 
 
 interface TaskItemProps {
   task: Doc<"tasks">;
@@ -50,8 +50,9 @@ export function TaskItem({
   isHardDelete = false,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isFocusMode, setIsFocusMode] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+
+  const { startFocusSession } = useFocusTimer();
 
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
@@ -60,15 +61,15 @@ export function TaskItem({
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
-    // Prevent multiple clicks while already loading
     if (isToggling) return;
     setIsToggling(true);
     try {
       await toggleComplete({ id: task._id });
+      await updateGoalProgress({ id: goalId });
     } finally {
       setIsToggling(false);
     }
-  };
+  }; 
 
   const handleDelete = async () => {
     if (isHardDelete) {
@@ -130,7 +131,6 @@ export function TaskItem({
         style={style}
       >
         <div className="flex items-start gap-4">
-          {/* Checkbox */}
           <button
             onClick={handleToggle}
             disabled={task.isArchived || isToggling}
@@ -150,7 +150,6 @@ export function TaskItem({
             )}
           </button>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
@@ -174,11 +173,16 @@ export function TaskItem({
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-2">
-
                 {!task.completed && !task.isArchived && (
-                  <Image src="/timer2.png" alt="Focus" width={30} height={20} onClick={() => setIsFocusMode(true)} className="w-7 md:w-8  cursor-pointer" />
+                  <Image
+                    src="/timer2.png"
+                    alt="Focus"
+                    width={30}
+                    height={20}
+                    onClick={() => startFocusSession(task)} 
+                    className="w-7 md:w-8 cursor-pointer"
+                  />
                 )}
 
                 <DropdownMenu>
@@ -198,45 +202,24 @@ export function TaskItem({
                           <Pencil className="w-4 h-4" /> Edit Task
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handlePriorityChange("high")}
-                          className="gap-2"
-                        >
-                          <Flag className="w-4 h-4 text-red-500" />
-                          High Priority
+                        <DropdownMenuItem onClick={() => handlePriorityChange("high")} className="gap-2">
+                          <Flag className="w-4 h-4 text-red-500" /> High Priority
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePriorityChange("medium")}
-                          className="gap-2"
-                        >
-                          <Flag className="w-4 h-4 text-yellow-500" />
-                          Medium Priority
+                        <DropdownMenuItem onClick={() => handlePriorityChange("medium")} className="gap-2">
+                          <Flag className="w-4 h-4 text-yellow-500" /> Medium Priority
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePriorityChange("low")}
-                          className="gap-2"
-                        >
-                          <Flag className="w-4 h-4 text-green-500" />
-                          Low Priority
+                        <DropdownMenuItem onClick={() => handlePriorityChange("low")} className="gap-2">
+                          <Flag className="w-4 h-4 text-green-500" /> Low Priority
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                       </>
                     )}
 
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="gap-2 text-destructive focus:text-destructive"
-                    >
+                    <DropdownMenuItem onClick={handleDelete} className="gap-2 text-destructive focus:text-destructive">
                       {isHardDelete ? (
-                        <>
-                          <Trash2 className="w-4 h-4" />
-                          Delete Permanently
-                        </>
+                        <><Trash2 className="w-4 h-4" /> Delete Permanently</>
                       ) : (
-                        <>
-                          <Archive className="w-4 h-4" />
-                          Delete
-                        </>
+                        <><Archive className="w-4 h-4" /> Delete</>
                       )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -244,41 +227,27 @@ export function TaskItem({
               </div>
             </div>
 
-            {/* Meta Info */}
             <div className="flex flex-wrap items-center gap-3 mt-3 text-xs">
               {showGoalInfo && goalTitle && (
-                <span
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-full"
-                  style={{
-                    backgroundColor: `${goalColor}15`,
-                    color: goalColor,
-                  }}
-                >
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ backgroundColor: `${goalColor}15`, color: goalColor }}>
                   {goalTitle}
                 </span>
               )}
 
-              <span
-                className={cn(
-                  "px-2 py-1 rounded-full font-medium",
-                  task.priority === "high" && "bg-red-500/15 text-red-400",
-                  task.priority === "medium" &&
-                  "bg-yellow-500/15 text-yellow-400",
-                  task.priority === "low" && "bg-green-500/15 text-green-400"
-                )}
-              >
+              <span className={cn(
+                "px-2 py-1 rounded-full font-medium",
+                task.priority === "high" && "bg-red-500/15 text-red-400",
+                task.priority === "medium" && "bg-yellow-500/15 text-yellow-400",
+                task.priority === "low" && "bg-green-500/15 text-green-400"
+              )}>
                 {task.priority}
               </span>
 
               {task.dueDate && (
-                <span
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded-full",
-                    task.dueDate < Date.now() && !task.completed
-                      ? "bg-red-500/15 text-red-400"
-                      : "bg-secondary text-muted-foreground"
-                  )}
-                >
+                <span className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-full",
+                  task.dueDate < Date.now() && !task.completed ? "bg-red-500/15 text-red-400" : "bg-secondary text-muted-foreground"
+                )}>
                   <Calendar className="w-3 h-3" />
                   {formatDate(task.dueDate)}
                 </span>
@@ -308,12 +277,6 @@ export function TaskItem({
         userId={task.userId}
         mode="edit"
         initialData={task}
-      />
-
-      <FocusTimer
-        isOpen={isFocusMode}
-        onOpenChange={setIsFocusMode}
-        task={task}
       />
     </>
   );
