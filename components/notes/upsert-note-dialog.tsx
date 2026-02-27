@@ -26,14 +26,15 @@ import {
   Check,
   Globe,
   ScanEye,
-  Sparkles
+  Sparkles,
+  Laptop,
+  CloudUpload
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
-// Import the new Rich Text Editor component
 import { RichTextEditor } from "./rich-text-editor";
 
 interface UpsertNoteDialogProps {
@@ -81,6 +82,9 @@ export function UpsertNoteDialog({
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Upload Progress State
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+
   // Vision Analysis State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -118,6 +122,7 @@ export function UpsertNoteDialog({
     setSelectedFiles([]);
     setPreviewUrls([]);
     setExistingImageUrls([]);
+    setUploadProgress({ current: 0, total: 0 });
     setActiveTab("text");
   };
 
@@ -152,21 +157,17 @@ export function UpsertNoteDialog({
 
     setIsAnalyzing(true);
     try {
-      // 1. Convert first image to Base64
       const file = selectedFiles[0];
       const reader = new FileReader();
 
       reader.onloadend = async () => {
         const base64String = reader.result as string;
 
-        // 2. Call AI Action
         const result = await analyzeImage({
           imageBase64: base64String,
-          prompt: "Analyze this image. If it contains text, transcribe it. If it is a diagram or scene, describe it in detail."
         });
 
         if (result) {
-          // 3. Populate Text Tab (formatting it nicely for HTML output)
           setText((prev) => prev ? prev + "<br><br><strong>AI Analysis</strong><br>" + result.replace(/\n/g, '<br>') : result.replace(/\n/g, '<br>'));
           toast.success("Analysis complete! Switched to Text tab.");
           setActiveTab("text");
@@ -189,6 +190,7 @@ export function UpsertNoteDialog({
     if (activeTab === "image" && selectedFiles.length === 0 && existingImageUrls.length === 0) return;
 
     setIsSubmitting(true);
+    setUploadProgress({ current: 0, total: selectedFiles.length });
 
     try {
       let finalContent = undefined;
@@ -198,7 +200,11 @@ export function UpsertNoteDialog({
       if (activeTab === "image") {
         const newStorageIds: string[] = [];
         if (selectedFiles.length > 0) {
-          for (const file of selectedFiles) {
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+
+            setUploadProgress(prev => ({ ...prev, current: i + 1 }));
+
             const postUrl = await generateUploadUrl();
             const result = await fetch(postUrl, {
               method: "POST",
@@ -230,6 +236,10 @@ export function UpsertNoteDialog({
         language: finalLanguage,
       };
 
+      if (activeTab === "image") {
+        setUploadProgress(prev => ({ ...prev, current: prev.total + 1 }));
+      }
+
       if (mode === "create") {
         if (!userId || !goalId) return;
         await createNote({ userId, goalId, ...payload });
@@ -246,6 +256,7 @@ export function UpsertNoteDialog({
       toast.error("Failed to save note");
     } finally {
       setIsSubmitting(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -270,9 +281,123 @@ export function UpsertNoteDialog({
               animate={{ scale: 1, opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ scale: 0.95, opacity: 0, y: 10, filter: "blur(4px)" }}
               transition={{ type: "spring", duration: 0.35, bounce: 0 }}
-              className="bg-background/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col pointer-events-auto overflow-hidden ring-1 ring-white/5"
+              className="relative bg-background/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col pointer-events-auto overflow-hidden ring-1 ring-white/5"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* HIGHLY ANIMATED LOADING OVERLAY */}
+              <AnimatePresence>
+                {isSubmitting && (
+                  <motion.div
+                    initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                    animate={{ opacity: 1, backdropFilter: "blur(12px)" }}
+                    exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-background/85"
+                  >
+                    {/* Glowing background orbs */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-blue-500/10 rounded-full blur-[60px] pointer-events-none" />
+
+                    <div className="relative flex flex-col items-center justify-center p-8 text-center w-full max-w-sm">
+
+                      {activeTab === 'image' && uploadProgress.total > 0 ? (
+                        <>
+                          {/* PROJECTILE TRANSFER ANIMATION */}
+                          <div className="relative w-64 h-32 mb-6 flex items-center">
+
+
+                            {/* Moving Payload (Image Thumbnail) */}
+                            <motion.div
+                              animate={{
+                                x: [0, 160], // Moves from local device to cloud
+                                y: [0, -45, 0], // Parabolic arch
+                                scale: [0.6, 1.2, 0.6],
+                                opacity: [0, 1, 0]
+                              }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 1.5,
+                                ease: "easeInOut"
+                              }}
+                              className="absolute left-[2.5rem] w-12 h-12 rounded-lg overflow-hidden border-2 border-primary shadow-[0_0_20px_rgba(var(--primary),0.6)] z-20 bg-background flex items-center justify-center"
+                            >
+                              {previewUrls[Math.min(uploadProgress.current - 1, previewUrls.length - 1)] ? (
+                                <img src={previewUrls[Math.min(uploadProgress.current - 1, previewUrls.length - 1)]} alt="uploading" className="w-full h-full object-cover opacity-90" />
+                              ) : (
+                                <ImageIcon className="w-5 h-5 text-primary" />
+                              )}
+                            </motion.div>
+
+                            {/* Local Device Icon */}
+                            <div className="absolute left-0 z-10 bg-secondary p-3.5 rounded-2xl border border-white/10 shadow-lg">
+                              <Laptop className="w-6 h-6 text-muted-foreground" />
+                            </div>
+
+                            {/* Cloud Icon */}
+                            <div className="absolute right-0 z-10 bg-blue-500/10 p-3.5 rounded-2xl border border-blue-500/30 shadow-[0_0_25px_rgba(59,130,246,0.25)]">
+                              <CloudUpload className="w-6 h-6 text-blue-400" />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* STANDARD ORBITAL ANIMATION (For text/code/link) */
+                        <div className="relative flex items-center justify-center w-24 h-24 mb-6">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                            className="absolute inset-0 rounded-full border-t-2 border-r-2 border-primary shadow-[0_0_15px_rgba(var(--primary),0.5)]"
+                          />
+                          <motion.div
+                            animate={{ rotate: -360 }}
+                            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                            className="absolute inset-2 rounded-full border-b-2 border-l-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                          />
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                            className="relative z-10 bg-background/50 backdrop-blur-md p-3 rounded-full border border-white/10"
+                          >
+                            <Save className="w-6 h-6 text-primary" />
+                          </motion.div>
+                        </div>
+                      )}
+
+                      {/* Dynamic Title */}
+                      <motion.h3
+                        animate={{ opacity: [0.7, 1, 0.7] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400 tracking-wider uppercase mb-2"
+                      >
+                        {activeTab === 'image' && uploadProgress.total > 0
+                          ? (uploadProgress.current > uploadProgress.total ? "Finalizing Note..." : "Transferring to Cloud...")
+                          : "Saving Note..."}
+                      </motion.h3>
+
+                      {/* PROGRESS BAR SECTION */}
+                      {activeTab === 'image' && uploadProgress.total > 0 ? (
+                        <div className="w-full mt-2 px-2">
+                          <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
+                            <span>Progress</span>
+                            <span>{Math.min(uploadProgress.current, uploadProgress.total)} / {uploadProgress.total}</span>
+                          </div>
+                          <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden relative shadow-inner">
+                            <motion.div
+                              className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-blue-500 rounded-full"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(Math.min(uploadProgress.current, uploadProgress.total) / uploadProgress.total) * 100}%` }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground font-medium">
+                          Encrypting and syncing your content
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* HEADER */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
                 <div className="flex items-center gap-3">
@@ -341,15 +466,12 @@ export function UpsertNoteDialog({
                           transition={{ duration: 0.2 }}
                           className="space-y-3"
                         >
-                          
-                          {/* Rich Text Editor Component replacing standard Textarea */}
                           <RichTextEditor
                             content={text}
                             onChange={(newContent) => setText(newContent)}
                           />
-
                         </motion.div>
-                      )}  
+                      )}
 
                       {/* CODE TAB */}
                       {activeTab === "code" && (

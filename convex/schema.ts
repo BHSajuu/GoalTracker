@@ -36,7 +36,7 @@ export default defineSchema({
     completed: v.boolean(),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     dueDate: v.optional(v.number()),
-    estimatedTime: v.optional(v.number()), 
+    estimatedTime: v.optional(v.number()),
     actualTime: v.optional(v.number()),
     isArchived: v.optional(v.boolean()),
     completedAt: v.optional(v.number()),
@@ -54,10 +54,11 @@ export default defineSchema({
     images: v.optional(v.array(v.string())),
     language: v.optional(v.string()),
     createdAt: v.number(),
+    analysis: v.optional(v.record(v.string(), v.string())),
   })
     .index("by_goal", ["goalId"])
     .index("by_user", ["userId"]),
-    
+
   focusSessions: defineTable({
     userId: v.id("users"),
     taskId: v.id("tasks"),
@@ -66,8 +67,8 @@ export default defineSchema({
     duration: v.number(), // In minutes
     status: v.union(v.literal("completed"), v.literal("interrupted")),
   })
-  .index("by_user", ["userId"])
-  .index("by_task", ["taskId"]),
+    .index("by_user", ["userId"])
+    .index("by_task", ["taskId"]),
 
   visitors: defineTable({
     ip: v.string(),

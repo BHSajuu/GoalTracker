@@ -147,7 +147,6 @@ export const generateGoalPlan = action({
 export const analyzeImage = action({
   args: {
     imageBase64: v.string(),
-    prompt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const apiKey = process.env.NVIDIA_LLAMA_VISION_API_KEY;
@@ -156,7 +155,6 @@ export const analyzeImage = action({
       throw new Error("Missing NVIDIA_LLAMA_VISION_API_KEY in Environment Variables. Please add it in the Convex Dashboard.");
     }
 
-    // Llama 3.2 Vision (11B)
     const modelId = "meta/llama-3.2-11b-vision-instruct";
 
     const openai = new OpenAI({
@@ -165,6 +163,23 @@ export const analyzeImage = action({
     });
 
     console.log("👁️ Vision Analysis Starting...");
+
+    const systemPrompt = `You are a strict, highly professional image analysis AI.
+    Analyze the provided image and extract information EXACTLY in the following plain-text structure.
+
+    CRITICAL RULES:
+    1. DO NOT use any markdown symbols (no asterisks *, no bold **, no hashes #).
+    2. Respond strictly with these uppercase headers followed by a colon and the content.
+
+    SUMMARY:
+    [Provide a brief, clear summary of what the image is]
+
+    EXTRACTED TEXT:
+    [Write out any important text found in the image. If there is no text, write "No text found."]
+
+    KEY INSIGHTS:
+    - [Insight 1]
+    - [Insight 2]`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -175,7 +190,7 @@ export const analyzeImage = action({
             content: [
               {
                 type: "text",
-                text: args.prompt || "Analyze this image. If it contains text, transcribe it. If it's a diagram, explain it. Keep it concise.",
+                text: systemPrompt,
               },
               {
                 type: "image_url",
@@ -187,10 +202,17 @@ export const analyzeImage = action({
           },
         ],
         max_tokens: 1024,
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
-      const result = response.choices[0].message.content;
+      let result = response.choices[0].message.content || "";
+      // 1. Remove **bold** and *italics* while preserving the text inside
+      result = result.replace(/\*\*?([\s\S]*?)\*\*?/g, "$1");
+      // 2. Remove markdown headers (e.g., ### )
+      result = result.replace(/^[\t ]*#+\s+/gm, "");
+      // 3. Trim extra whitespace
+      result = result.trim();
+
       console.log("✅ Vision Analysis Complete");
 
       return result;

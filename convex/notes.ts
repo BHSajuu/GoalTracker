@@ -112,3 +112,29 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const saveImageAnalysis = mutation({
+  args: {
+    id: v.id("notes"),
+    imageUrl: v.string(),
+    analysisText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    
+    const note = await ctx.db.get(args.id);
+    if (!note) throw new Error("Note not found");
+
+    // Get the existing analysis map, or create a new empty one
+    const currentAnalysis = note.analysis ?? {};
+
+    // This SETS the text for this specific URL. If it exists, it replaces it.
+    currentAnalysis[args.imageUrl] = args.analysisText;
+
+    // Patch the note with the updated map
+    await ctx.db.patch(args.id, {
+      analysis: currentAnalysis,
+    });
+
+    return true;
+  },
+});

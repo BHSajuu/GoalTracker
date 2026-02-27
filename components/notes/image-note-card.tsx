@@ -1,25 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useState, useEffect, useMemo } from "react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, ChevronLeft, ChevronRight, X, Maximize2, PencilIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Trash2, ChevronLeft, ChevronRight, X, Maximize2,
+  PencilIcon, Sparkles, Loader2, Save, Copy, FileText, CornerDownRight, Zap,
+  ScanEye,
+  Check
+} from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 interface ImageNoteCardProps {
-  note: Doc<"notes"> & { imageUrls?: string[] }; // Extend Doc with the extra prop we added in the query
+  note: Doc<"notes"> & { imageUrls?: string[] };
 }
 
 export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [activeAnalysisTabUrl, setActiveAnalysisTabUrl] = useState<string | null>(null);
+  const [showAiDialog, setShowAiDialog] = useState(false);
+  const [currentAnalysisImageUrl, setCurrentAnalysisImageUrl] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editableAnalysis, setEditableAnalysis] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
+
   const removeNote = useMutation(api.notes.remove);
+  const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
+  const analyzeImage = useAction(api.ai.analyzeImage);
 
   const handleRemove = async () => {
     try {
@@ -32,94 +53,207 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
   const imagesToDisplay = note.imageUrls && note.imageUrls.length > 0
     ? note.imageUrls
-    : note.content ? [note.content] : [];
+    : note.content && note.content.startsWith("http") && !note.content.includes(" ") ? [note.content] : [];
 
-  const handleNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (lightboxIndex !== null) {
-      setLightboxIndex((prev) => (prev! + 1) % imagesToDisplay.length);
-    }
-  };
+  const analyzedImages = useMemo(() => {
+    return imagesToDisplay.filter(url => !!note.analysis?.[url]);
+  }, [imagesToDisplay, note.analysis]);
 
-  const handlePrev = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (lightboxIndex !== null) {
-      setLightboxIndex((prev) => (prev! - 1 + imagesToDisplay.length) % imagesToDisplay.length);
-    }
-  };
-
-  // Keyboard navigation for Lightbox
+  // Set the first analyzed image as the active tab when opening the view dialog
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (lightboxIndex === null) return;
+    if (isViewOpen && analyzedImages.length > 0) {
+      setActiveAnalysisTabUrl(analyzedImages[0]);
+    }
+  }, [isViewOpen, analyzedImages]);
 
-      if (e.key === "Escape") setLightboxIndex(null);
-      if (e.key === "ArrowRight") handleNext();
-      if (e.key === "ArrowLeft") handlePrev();
-    };
+  // AI Analysis Logic
+  const getBase64Image = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch image");
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lightboxIndex, imagesToDisplay.length]);
+  const handleAnalyze = async (url: string) => {
+    // Ensure parent dialogs are closed so the AI Editor takes front stage
+    setIsViewOpen(false);
+    setLightboxIndex(null);
 
-  // Grid logic: 1 image = full, 2 = half/half, 3+ = grid
+    setShowAiDialog(true);
+    setCurrentAnalysisImageUrl(url);
+    setIsAnalyzing(true);
+    setEditableAnalysis("");
+
+    try {
+      const base64 = await getBase64Image(url);
+      const rawResult = await analyzeImage({ imageBase64: base64 });
+      setEditableAnalysis(rawResult || "No analysis generated.");
+    } catch (error: any) {
+      toast.error("Analysis failed: " + error.message);
+      setShowAiDialog(false);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleEditAnalysis = (url: string, existingText: string) => {
+    setIsViewOpen(false);
+    setCurrentAnalysisImageUrl(url);
+    setEditableAnalysis(existingText);
+    setIsAnalyzing(false);
+    setShowAiDialog(true);
+  };
+
+  const handleCopyAnalysis = (text?: string) => {
+    const targetText = text || editableAnalysis;
+    if (!targetText) return;
+    navigator.clipboard.writeText(targetText);
+    setHasCopied(true);
+    toast.success("Analysis copied to clipboard!");
+
+     setTimeout(() => {
+      setHasCopied(false);
+    }, 2000);
+  };
+
+  const handleSaveAnalysis = async () => {
+    if (!editableAnalysis || !currentAnalysisImageUrl) return;
+    setIsSaving(true);
+    try {
+      await saveImageAnalysis({
+        id: note._id,
+        imageUrl: currentAnalysisImageUrl,
+        analysisText: editableAnalysis
+      });
+      toast.success("Analysis saved securely to this image!");
+      setShowAiDialog(false);
+    } catch (error: any) {
+      toast.error("Failed to save analysis: " + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // LASER SCREENING ANIMATION
+  const LaserScanner = () => (
+    <div className="relative w-full aspect-video bg-black/30 rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center">
+      {currentAnalysisImageUrl && (
+        <img
+          src={currentAnalysisImageUrl}
+          alt="Analyzing"
+          className="absolute inset-0 w-full h-full object-cover blur-[5px] opacity-40"
+        />
+      )}
+
+      {/* Vertical scanning laser (matches original style) */}
+      <motion.div
+        animate={{ top: ["-20%", "120%"] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+        className="absolute left-0 right-0 h-24 bg-gradient-to-b from-transparent via-blue-400/20 to-blue-400/50 border-b-2 border-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.6)] z-30"
+      />
+
+      <div className="relative z-10 flex flex-col items-center gap-4">
+        <div className="relative">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+            className="w-16 h-16 rounded-full border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+          />
+          <motion.div
+            className="absolute inset-0 m-auto w-6 h-6 text-blue-300 z-20 flex items-center justify-center"
+            animate={{ scale: [1, 1.08, 1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            <ScanEye className="w-6 h-6 text-blue-300" />
+          </motion.div>
+        </div>
+
+        <p className="text-xs text-blue-100 font-medium tracking-widest uppercase animate-pulse">
+          Analyzing...
+        </p>
+      </div>
+
+      <motion.div
+        className="absolute left-0 top-0 w-full h-[4px] bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_20px_rgba(59,130,246,1)] z-20"
+        initial={{ top: "0%" }}
+        animate={{ top: "100%" }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-transparent to-blue-900/20" />
+    </div>
+  );
+
   const getGridClass = (count: number) => {
     if (count === 1) return "grid-cols-1";
     if (count === 2) return "grid-cols-2";
-    return "grid-cols-2"; // 3+ shows as 2 cols grid
+    if (count === 3) return "grid-cols-2";
+    return "grid-cols-2";
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (lightboxIndex !== null) {
+      setLightboxIndex(lightboxIndex > 0 ? lightboxIndex - 1 : imagesToDisplay.length - 1);
+    }
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (lightboxIndex !== null) {
+      setLightboxIndex(lightboxIndex < imagesToDisplay.length - 1 ? lightboxIndex + 1 : 0);
+    }
   };
 
   return (
     <>
-      <Card className="glass md:w-96 group hover:border-primary/30 transition-all mb-4 break-inside-avoid">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <Card className="glass md:w-96 group hover:border-primary/40 transition-all duration-300 break-inside-avoid shadow-lg hover:shadow-primary/10">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
           <div className="flex items-center gap-2">
             <Image src="/img.png" alt="Image" width={24} height={24} className="opacity-80" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground font-medium tracking-wide">
               {format(note.createdAt, "MMM d, h:mm a")}
             </span>
           </div>
-
-          <div className="flex items-center justify-between gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-primary"
-              onClick={() => setIsEditing(true)}
-            >
-              <PencilIcon className="w-3 h-3" />
+          <div className="flex items-center justify-between gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => setIsEditing(true)}>
+              <PencilIcon className="w-3.5 h-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-destructive"
-              onClick={handleRemove}
-            >
-              <Trash2 className="w-3 h-3" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={handleRemove}>
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 pt-2">
+        <CardContent className="p-4 pt-0 space-y-2 cursor-pointer" onClick={() => setIsViewOpen(true)}>
           {imagesToDisplay.length > 0 ? (
-            <div className={`grid ${getGridClass(imagesToDisplay.length)} gap-1 rounded-lg overflow-hidden border border-border/50`}>
+            <div className={`grid ${getGridClass(imagesToDisplay.length)} gap-4.5 p-5 rounded-xl overflow-hidden border border-white/10`}>
               {imagesToDisplay.slice(0, 4).map((url, index) => (
-                <div
-                  key={index}
-                  className="relative  aspect-square cursor-pointer group/img overflow-hidden"
-                  onClick={() => setLightboxIndex(index)}
-                >
-                  <img
-                    src={url}
-                    alt="Note attachment"
-                    className="w-full h-full object-contain transition-transform "
+                <div key={index} className={` ${imagesToDisplay.length == 1 ? "" : "w-38 h-30"} rounded-xl relative aspect-square cursor-pointer group/img overflow-hidden bg-black/10`}>
+                  <img src={url} alt="Note attachment" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex(index); }}
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/img:opacity-100">
-                    <Maximize2 className="w-6 h-6 text-white drop-shadow-md" />
+                  <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors duration-300 flex items-center justify-center pointer-events-none">
+                    <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
                   </div>
-                  {/* Show "+X" on the last item if there are more than 4 images */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-black/50 hover:bg-blue-600/90 text-white border border-white/20 backdrop-blur-md shadow-lg"
+                      onClick={(e) => { e.stopPropagation(); handleAnalyze(url); }} title="Analyze with Llama Vision">
+                      <ScanEye className="w-3.5 h-3.5 text-blue-300 group-hover/img:text-white" />
+                    </Button>
+                  </div>
+                  {!!note.analysis?.[url] && (
+                    <div className="absolute bottom-2 right-2 p-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md shadow-lg" title="Has AI Analysis">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                  )}
                   {index === 3 && imagesToDisplay.length > 4 && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl">
+                    <div className="absolute inset-0 bg-black/60  flex items-center justify-center text-white font-bold text-2xl" onClick={(e) => { e.stopPropagation(); setLightboxIndex(index); }}>
                       +{imagesToDisplay.length - 4}
                     </div>
                   )}
@@ -127,8 +261,25 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               ))}
             </div>
           ) : (
-            <div className="h-20 bg-secondary/30 rounded-lg flex items-center justify-center text-xs text-muted-foreground">
+            <div className="h-20 bg-secondary/30 rounded-xl flex items-center justify-center text-xs text-muted-foreground border border-white/5">
               No image
+            </div>
+          )}
+
+          {analyzedImages.length > 0 && (
+            <div className="bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors p-4 rounded-xl border border-emerald-500/10 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-emerald-300">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span className="text-[10px] font-bold tracking-wider">AI Analysis Available</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {analyzedImages.slice(0, 3).map(url => (
+                  <img key={url} src={url} className="w-5 h-5 object-cover rounded border border-emerald-500/30" alt="Analyzed Source" />
+                ))}
+                {analyzedImages.length > 3 && (
+                  <span className="text-xs text-emerald-300">+{analyzedImages.length - 3}</span>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -138,18 +289,85 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
         open={isEditing}
         onOpenChange={setIsEditing}
         mode="edit"
-        initialData={{
-          _id: note._id,
-          type: "image",
-          imageUrls: note.imageUrls,
-          images: note.images,
-        }}
+        initialData={{ _id: note._id, type: "image", imageUrls: note.imageUrls, images: note.images }}
       />
+
+      {/* PREMIUM tabbed View Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="sm:max-w-xl md:max-w-3xl max-h-[95vh]  flex flex-col bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.15)] rounded-3xl overflow-hidden p-0">
+          <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-[90px] -z-10 pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-emerald-500/10 rounded-full blur-[90px] -z-10 pointer-events-none" />
+
+          {/* Accessiblity Requirements */}
+          <DialogTitle className="sr-only">Image Note Details</DialogTitle>
+          <DialogDescription className="sr-only">Created on {format(note.createdAt, "MMMM d, yyyy h:mm a")}</DialogDescription>
+
+          {analyzedImages.length > 0 && (
+            <Tabs value={activeAnalysisTabUrl || analyzedImages[0]} onValueChange={setActiveAnalysisTabUrl} className="flex flex-col w-full h-full max-h-[95vh]">
+
+              {/* TABS HEADER */}
+              <div className="px-10 py-4  border-b border-white/5 bg-gradient-to-b from-muted/50 to-transparent flex items-center w-full overflow-hidden shrink-0">
+                <TabsList className="bg-black/20 h-11 w-full rounded-full p-1 border border-white/5 custom-scrollbar overflow-x-auto justify-start inline-flex">
+                  {analyzedImages.map((url, index) => (
+                    <TabsTrigger key={url} value={url} className="rounded-full gap-2 text-xs font-semibold px-4 h-full data-[state=active]:bg-emerald-600 data-[state=active]:text-white shrink-0 transition-all">
+                    Image {index + 1}
+                      <img src={url} className="w-5 h-5 object-cover rounded-sm border border-white/10 shrink-0 shadow-sm" alt="Analyzed Thumb" />
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              {/* TAB CONTENT BODY */}
+              <div className="px-4 py-2 overflow-y-auto flex-1 custom-scrollbar">
+                {analyzedImages.map((url) => {
+                  const analysis = note.analysis?.[url];
+                  return (
+                    <TabsContent key={url} value={url} className="m-0 focus-visible:outline-none">
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                        <div className="grid grid-cols-[100px_1fr] items-center gap-4 bg-emerald-500/5 p-2.5 rounded-2xl border border-emerald-500/10">
+                          <img src={url} className="w-full aspect-square object-cover rounded-lg border border-emerald-500/30 shadow-lg cursor-pointer transition-transform hover:scale-105" alt="Analyzed Full" onClick={() => setLightboxIndex(imagesToDisplay.indexOf(url))} />
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-emerald-300">
+                              <Sparkles className="w-4 h-4 shrink-0" />
+                              <span className="text-[10px] font-bold tracking-wider">AI Llama Vision Insights</span>
+                            </div>
+                            <p className="text-xs text-emerald-200 opacity-90">Deep visual intelligence extracted from this specific image. View the clean text below.</p>
+                          </div>
+                        </div>
+
+                        <div className="p-5 bg-black/10 rounded-2xl border border-white/5 text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed font-medium">
+                          {analysis}
+                        </div>
+
+                        <div className="flex justify-end gap-3 pb-5 pt-2">
+                          <Button variant="outline" size="sm" onClick={() => handleCopyAnalysis(analysis)} className="rounded-full h-9 text-xs gap-1.5 border border-white/5">
+                            {hasCopied ? <Check className="w-3.5 h-3.5 mr-1.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+                            {hasCopied ? "Copied" : "Copy"}
+                          </Button>
+
+                          <Button variant="outline" onClick={() => handleEditAnalysis(url, analysis || "")} className="rounded-full h-9 text-xs gap-1.5 border border-white/10 hover:bg-white/5 text-emerald-400 hover:text-emerald-300">
+                            <PencilIcon className="w-3.5 h-3.5" /> Edit
+                          </Button>
+
+                          <Button size="sm" onClick={() => handleAnalyze(url)} className="rounded-full h-9 bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-lg shadow-blue-500/20">
+                            <Zap className="w-3.5 h-3.5 fill-current" /> Re-Analyze
+                          </Button>
+                        </div>
+                      </motion.div>
+                    </TabsContent>
+                  );
+                })}
+              </div>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Custom Full Screen Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed mt-44 m-4 md:m-10 rounded-4xl max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-9999 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
+          className="fixed mt-44 m-4 md:m-10 rounded-4xl max-h-[60vh] md:max-h-[95vh] max-w-[95vw] inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
           onClick={() => setLightboxIndex(null)} // Close on backdrop click
         >
           {/* Close Button */}
@@ -158,7 +376,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               e.stopPropagation();
               setLightboxIndex(null);
             }}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10000"
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000]"
           >
             <X className="w-8 h-8" />
           </button>
@@ -166,7 +384,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
           {/* Main Content Area */}
           <div
             className="relative w-full h-full p-4 md:p-10 flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()} 
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Main Image */}
             <img
@@ -174,6 +392,18 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               alt="Full view"
               className="max-w-full max-h-full object-contain select-none shadow-2xl"
             />
+
+            <button onClick={(e) => {
+              e.stopPropagation();
+              setLightboxIndex(null);
+              handleAnalyze(imagesToDisplay[lightboxIndex]);
+            }}
+              className="absolute bottom-10 right-10 px-5 py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-50">
+              <Sparkles className="w-5 h-5" />
+              <span className="text-sm font-bold tracking-wide">
+                {!!note.analysis?.[imagesToDisplay[lightboxIndex]] ? "Re-Analyze Image" : "Analyze with Vision"}
+              </span>
+            </button>
 
             {/* Navigation Arrows */}
             {imagesToDisplay.length > 1 && (
@@ -200,6 +430,64 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
           </div>
         </div>
       )}
+
+      {/* AI Analysis/Edit Dialog */}
+      <Dialog open={showAiDialog} onOpenChange={setShowAiDialog}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0">
+          <div className="p-6 pb-4 border-b border-white/5 bg-gradient-to-b from-blue-500/10 to-transparent flex items-center justify-between">
+            <DialogHeader className="flex flex-row w-[95%] justify-between">
+              <div className="flex items-center md:gap-3">
+                 <Image src="/img-s.png" alt="Empty" width={40} height={40}/>
+                <div>
+                  <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                    Llama Vision Intelligence
+                  </DialogTitle>
+                  <DialogDescription className="text-xs mt-1 hidden md:block">
+                    {isAnalyzing ? "Processing Visual Data stream..." : "Review and finalize AI-generated insights."}
+                  </DialogDescription>
+                </div>
+              </div>
+            {!isAnalyzing && editableAnalysis && (
+              <Button variant="outline" size="sm" onClick={() => handleCopyAnalysis(editableAnalysis)} className="rounded-full gap-1.5 border-blue-500/30 hover:bg-blue-500/10 text-blue-300">
+                {hasCopied ? <Check className="w-3.5 h-3.5 mr-1.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+                {hasCopied ? "Copied" : "Copy"}
+              </Button>
+            )}
+            </DialogHeader>
+            
+          </div>
+
+          <div className="px-5 space-y-2">
+            {isAnalyzing ? (
+              <LaserScanner />
+            ) : editableAnalysis ? (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-[10px] uppercase font-bold tracking-widest">
+                  <CornerDownRight className="w-3.5 h-3.5" /> EDIT INSIGHTS BELOW
+                </div>
+                <Textarea
+                  value={editableAnalysis}
+                  onChange={(e) => setEditableAnalysis(e.target.value)}
+                  className="w-full min-h-[35vh] max-h-[50vh] bg-black/10 rounded-2xl border-white/5 focus:border-blue-500/40 focus:ring-blue-500/10 text-sm leading-relaxed custom-scrollbar custom-scrollbar-textarea resize-y font-medium text-foreground/90 p-5 shadow-inner"
+                  placeholder="AI Analysis will appear here..."
+                />
+              </motion.div>
+            ) : null}
+          </div>
+
+          <div className="p-5 border-t border-white/5 bg-secondary/10 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setShowAiDialog(false)} disabled={isAnalyzing || isSaving} className="rounded-xl">
+              Dismiss
+            </Button>
+            {!isAnalyzing && editableAnalysis && (
+              <Button onClick={handleSaveAnalysis} disabled={isSaving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20">
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Analysis to Image
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
