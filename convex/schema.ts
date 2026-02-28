@@ -49,10 +49,12 @@ export default defineSchema({
   notes: defineTable({
     userId: v.id("users"),
     goalId: v.id("goals"),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
     language: v.optional(v.string()),
+    code: v.optional(v.string()),
+    link: v.optional(v.string()),
     createdAt: v.number(),
     analysis: v.optional(v.record(v.string(), v.string())),
   })

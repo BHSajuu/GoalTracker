@@ -7,35 +7,14 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Type,
-  Link as LinkIcon,
-  Image as ImageIcon,
-  X,
-  Upload,
-  Loader2,
-  Code,
-  Save,
-  Check,
-  Globe,
-  ScanEye,
-  Sparkles,
-  Laptop,
-  CloudUpload
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
+import { Type, Link as LinkIcon, Image as ImageIcon, X, Upload, Loader2, Code, Save, Globe, ScanEye, Sparkles, Laptop, CloudUpload } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-
 import { RichTextEditor } from "./rich-text-editor";
+
 
 interface UpsertNoteDialogProps {
   open: boolean;
@@ -45,11 +24,13 @@ interface UpsertNoteDialogProps {
   mode: "create" | "edit";
   initialData?: {
     _id: Id<"notes">;
-    type: "text" | "image" | "link" | "code";
+    type: "text" | "image" | "link" | "code" | "mixed";
     content?: string;
     imageUrls?: string[];
     images?: string[];
     language?: string;
+    code?: string;
+    link?: string;
   };
 }
 
@@ -81,14 +62,15 @@ export function UpsertNoteDialog({
   // Image State
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Upload Progress State
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-
-  // Vision Analysis State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Existing Images Tracking States
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [deletedLegacyImage, setDeletedLegacyImage] = useState(false);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,16 +83,41 @@ export function UpsertNoteDialog({
   // Initialize state
   useEffect(() => {
     if (open && initialData) {
-      setActiveTab(initialData.type);
+      // Determine default active tab based on what data exists
+      if (initialData.type === "mixed") {
+        if (initialData.content) setActiveTab("text");
+        else if (initialData.images && initialData.images.length > 0) setActiveTab("image");
+        else if (initialData.code) setActiveTab("code");
+        else if (initialData.link) setActiveTab("link");
+        else setActiveTab("text");
+      } else {
+        setActiveTab(initialData.type);
+      }
+
+      // Populate text
       if (initialData.type === "text") setText(initialData.content || "");
+      if (initialData.type === "mixed" && initialData.content) setText(initialData.content);
+
+      // Populate link
       if (initialData.type === "link") setLink(initialData.content || "");
+      if (initialData.type === "mixed" && initialData.link) setLink(initialData.link);
+
+      // Populate code
       if (initialData.type === "code") {
         setCodeSnippet(initialData.content || "");
         setLanguage(initialData.language || "javascript");
       }
-      if (initialData.type === "image" && initialData.imageUrls) {
-        setExistingImageUrls(initialData.imageUrls);
+      if (initialData.type === "mixed" && initialData.code) {
+        setCodeSnippet(initialData.code);
+        if (initialData.language) setLanguage(initialData.language);
       }
+
+      // Populate images
+      if (initialData.type === "image" || initialData.type === "mixed") {
+        if (initialData.imageUrls) setExistingImageUrls(initialData.imageUrls);
+        if (initialData.images) setExistingImages(initialData.images);
+      }
+
     } else if (open && mode === "create") {
       resetForm();
     }
@@ -124,6 +131,8 @@ export function UpsertNoteDialog({
     setSelectedFiles([]);
     setPreviewUrls([]);
     setExistingImageUrls([]);
+    setExistingImages([]);
+    setDeletedLegacyImage(false);
     setUploadProgress({ current: 0, total: 0 });
     setActiveTab("text");
   };
@@ -142,7 +151,6 @@ export function UpsertNoteDialog({
 
     const validFiles: File[] = [];
 
-    // Check file size before adding to the queue
     files.forEach(file => {
       if (file.size > MAX_FILE_SIZE) {
         toast.error(`Image "${file.name}" is too large. Maximum size is 5MB.`);
@@ -152,7 +160,6 @@ export function UpsertNoteDialog({
     });
 
     if (validFiles.length === 0) {
-      // Reset the input value so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -161,7 +168,6 @@ export function UpsertNoteDialog({
     const newPreviews = validFiles.map(file => URL.createObjectURL(file));
     setPreviewUrls((prev) => [...prev, ...newPreviews]);
 
-    // Reset the input value
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -170,7 +176,16 @@ export function UpsertNoteDialog({
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
-  //  VISION ANALYSIS HANDLER 
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
+
+    if (existingImages && existingImages.length > 0) {
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setDeletedLegacyImage(true);
+    }
+  };
+
   const handleAnalyzeImage = async () => {
     if (selectedFiles.length === 0) {
       toast.error("Please select an image first");
@@ -184,10 +199,7 @@ export function UpsertNoteDialog({
 
       reader.onloadend = async () => {
         const base64String = reader.result as string;
-
-        const result = await analyzeImage({
-          imageBase64: base64String,
-        });
+        const result = await analyzeImage({ imageBase64: base64String });
 
         if (result) {
           setText((prev) => prev ? prev + "<br><br><strong>AI Analysis</strong><br>" + result.replace(/\n/g, '<br>') : result.replace(/\n/g, '<br>'));
@@ -199,34 +211,41 @@ export function UpsertNoteDialog({
 
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error(error);
       toast.error("Failed to analyze image");
       setIsAnalyzing(false);
     }
   };
 
+  // Helper to check if a tab contains data (for UI indicator and submission validation)
+  const checkTabContent = (tabId: string) => {
+    if (tabId === "text") return text.trim() !== "" && text !== "<p></p>";
+    if (tabId === "code") return codeSnippet.trim() !== "";
+    if (tabId === "link") return link.trim() !== "";
+    if (tabId === "image") return selectedFiles.length > 0 || existingImageUrls.length > 0;
+    return false;
+  };
+
   const handleSubmit = async () => {
-    if (activeTab === "text" && (!text.trim() || text === "<p></p>")) return;
-    if (activeTab === "link" && !link.trim()) return;
-    if (activeTab === "code" && !codeSnippet.trim()) return;
-    if (activeTab === "image" && selectedFiles.length === 0 && existingImageUrls.length === 0) return;
+    const hasText = checkTabContent("text");
+    const hasLink = checkTabContent("link");
+    const hasCode = checkTabContent("code");
+    const hasImages = checkTabContent("image");
+
+    if (!hasText && !hasLink && !hasCode && !hasImages) return;
 
     setIsSubmitting(true);
     setUploadProgress({ current: 0, total: selectedFiles.length });
 
     try {
-      let finalContent = undefined;
       let finalImages: string[] | undefined = undefined;
-      let finalLanguage = undefined;
 
-      if (activeTab === "image") {
+      // Handle Image Uploads
+      if (hasImages) {
         const newStorageIds: string[] = [];
         if (selectedFiles.length > 0) {
           for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
-
             setUploadProgress(prev => ({ ...prev, current: i + 1 }));
-
             const postUrl = await generateUploadUrl();
             const result = await fetch(postUrl, {
               method: "POST",
@@ -238,27 +257,60 @@ export function UpsertNoteDialog({
           }
         }
 
-        if (mode === "edit" && initialData?.images) {
-          finalImages = [...initialData.images, ...newStorageIds];
+        if (mode === "edit") {
+          finalImages = [...existingImages, ...newStorageIds];
         } else {
           finalImages = newStorageIds;
         }
       }
-      else if (activeTab === "text") finalContent = text;
-      else if (activeTab === "link") finalContent = link;
-      else if (activeTab === "code") {
-        finalContent = codeSnippet;
-        finalLanguage = language;
+
+      // Determine Note Type based on populated data
+      let activeCount = [hasText, hasLink, hasCode, hasImages].filter(Boolean).length;
+      let finalType = activeTab as "text" | "image" | "link" | "code" | "mixed";
+
+      if (activeCount > 1) {
+        finalType = "mixed";
+      } else if (activeCount === 1) {
+        if (hasText) finalType = "text";
+        else if (hasImages) finalType = "image";
+        else if (hasLink) finalType = "link";
+        else if (hasCode) finalType = "code";
+      }
+
+      let payloadContent = undefined;
+      let payloadLink = undefined;
+      let payloadCode = undefined;
+      let payloadLanguage = undefined;
+
+      // Map fields cleanly
+      if (finalType === "mixed") {
+        payloadContent = hasText ? text : undefined;
+        payloadLink = hasLink ? link : undefined;
+        payloadCode = hasCode ? codeSnippet : undefined;
+        payloadLanguage = hasCode ? language : undefined;
+      } else {
+        // Fallback backward compatibility for single-type legacy nodes
+        if (finalType === "text") payloadContent = text;
+        if (finalType === "link") payloadContent = link;
+        if (finalType === "code") {
+          payloadContent = codeSnippet;
+          payloadLanguage = language;
+        }
+        if (finalType === "image" && mode === "edit" && !deletedLegacyImage && initialData?.content && initialData.content.startsWith("http")) {
+          payloadContent = initialData.content;
+        }
       }
 
       const payload = {
-        type: activeTab as "text" | "image" | "link" | "code",
-        content: finalContent,
+        type: finalType,
+        content: payloadContent,
         images: finalImages,
-        language: finalLanguage,
+        language: payloadLanguage,
+        code: payloadCode,
+        link: payloadLink,
       };
 
-      if (activeTab === "image") {
+      if (hasImages) {
         setUploadProgress(prev => ({ ...prev, current: prev.total + 1 }));
       }
 
@@ -303,7 +355,7 @@ export function UpsertNoteDialog({
               animate={{ scale: 1, opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ scale: 0.95, opacity: 0, y: 10, filter: "blur(4px)" }}
               transition={{ type: "spring", duration: 0.35, bounce: 0 }}
-              className="relative bg-background/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col pointer-events-auto overflow-hidden ring-1 ring-white/5"
+              className="relative bg-background/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl h-[75vh] md:h-[90vh] flex flex-col pointer-events-auto overflow-hidden ring-1 ring-white/5"
               onClick={(e) => e.stopPropagation()}
             >
               {/* HIGHLY ANIMATED LOADING OVERLAY */}
@@ -321,7 +373,7 @@ export function UpsertNoteDialog({
 
                     <div className="relative flex flex-col items-center justify-center p-8 text-center w-full max-w-sm">
 
-                      {activeTab === 'image' && uploadProgress.total > 0 ? (
+                      {checkTabContent("image") && uploadProgress.total > 0 ? (
                         <>
                           {/* PROJECTILE TRANSFER ANIMATION */}
                           <div className="relative w-64 h-32 mb-6 flex items-center">
@@ -389,13 +441,13 @@ export function UpsertNoteDialog({
                         transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                         className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400 tracking-wider uppercase mb-2"
                       >
-                        {activeTab === 'image' && uploadProgress.total > 0
+                        {checkTabContent("image") && uploadProgress.total > 0
                           ? (uploadProgress.current > uploadProgress.total ? "Finalizing Note..." : "Transferring to Cloud...")
                           : "Saving Note..."}
                       </motion.h3>
 
                       {/* PROGRESS BAR SECTION */}
-                      {activeTab === 'image' && uploadProgress.total > 0 ? (
+                      {checkTabContent("image") && uploadProgress.total > 0 ? (
                         <div className="w-full mt-2 px-2">
                           <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
                             <span>Progress</span>
@@ -421,7 +473,7 @@ export function UpsertNoteDialog({
               </AnimatePresence>
 
               {/* HEADER */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
                 <div className="flex items-center gap-3">
                   <Image src="/note.png" alt="noteIcon" width={34} height={34} />
                   <div>
@@ -429,7 +481,7 @@ export function UpsertNoteDialog({
                       {mode === "create" ? "Create New Note" : "Edit Note"}
                     </h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Add context, resources, or code snippets.
+                      Add context, resources, or code snippets. Data left in any tab will be saved together!
                     </p>
                   </div>
                 </div>
@@ -445,12 +497,14 @@ export function UpsertNoteDialog({
 
               {/* SCROLLABLE CONTENT */}
               <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-6">
+                <div className="p-4">
 
-                  {/* TABS */}
-                  <div className="flex p-1 bg-secondary/30 rounded-xl mb-6 border border-white/5 relative">
+                  {/* TABS with Dynamic Active Indicators */}
+                  <div className="flex p-1 bg-secondary/30 rounded-xl mb-4 border border-white/5 relative">
                     {TABS.map((tab) => {
                       const isActive = activeTab === tab.id;
+                      const hasData = checkTabContent(tab.id);
+
                       return (
                         <button
                           key={tab.id}
@@ -468,7 +522,13 @@ export function UpsertNoteDialog({
                             />
                           )}
                           <tab.icon className="w-4 h-4" />
-                          <span className="relative">{tab.label}</span>
+                          <span className="relative">
+                            {tab.label}
+                            {/* Green Dot Indicator for Tabs containing data */}
+                            {hasData && (
+                              <span className="absolute -right-2.5 top-0 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]" />
+                            )}
+                          </span>
                         </button>
                       );
                     })}
@@ -535,7 +595,7 @@ export function UpsertNoteDialog({
                               placeholder="// Paste your code here..."
                               value={codeSnippet}
                               onChange={(e) => setCodeSnippet(e.target.value)}
-                              className="min-h-87.5 font-mono text-sm resize-none bg-[#09090b] text-blue-100 border-none focus:ring-0 p-4 leading-normal"
+                              className="min-h-[326px] font-mono text-sm resize-none bg-[#09090b] text-blue-100 border-none focus:ring-0 p-4 leading-normal"
                               spellCheck={false}
                             />
                           </div>
@@ -680,11 +740,16 @@ export function UpsertNoteDialog({
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">Gallery</label>
                               <div className="grid grid-cols-4 gap-3">
                                 {existingImageUrls.map((url, idx) => (
-                                  <div key={`existing-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                    <img src={url} alt="Existing" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Check className="w-5 h-5 text-green-400" />
-                                    </div>
+                                  <div key={`existing-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group shadow-lg shadow-black/50">
+                                    <img src={url} alt="Existing" className="w-full h-full object-cover transition-opacity" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <button
+                                      onClick={() => removeExistingImage(idx)}
+                                      className="absolute top-2 right-2 bg-red-500/90 hover:bg-red-500 text-white rounded-full p-1.5 transition-all opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
+                                      title="Delete this image"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
                                   </div>
                                 ))}
                                 {previewUrls.map((url, idx) => (

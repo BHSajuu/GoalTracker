@@ -1,22 +1,21 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-// 1. Generate a URL for uploading files
+
 export const generateUploadUrl = mutation(async (ctx) => {
   return await ctx.storage.generateUploadUrl();
 });
 
-// 2. Create a new note 
 export const create = mutation({
   args: {
     userId: v.id("users"),
     goalId: v.id("goals"),
-    // UPDATE: Added "code" to the union
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
-    // UPDATE: Added language arg
     language: v.optional(v.string()),
+    code: v.optional(v.string()),
+    link: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("notes", {
@@ -26,21 +25,22 @@ export const create = mutation({
       content: args.content,
       images: args.images,
       language: args.language,
+      code: args.code,
+      link: args.link,
       createdAt: Date.now(),
     });
   },
 });
 
-// 3. Update an existing note
 export const update = mutation({
   args: {
     id: v.id("notes"),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
-    // UPDATE: Added "code" to the union
-    type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"))),
-    // UPDATE: Added language arg
+    type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed"))),
     language: v.optional(v.string()),
+    code: v.optional(v.string()),
+    link: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -48,7 +48,6 @@ export const update = mutation({
   },
 });
 
-// 4. Get notes 
 export const getByGoal = query({
   args: { goalId: v.id("goals") },
   handler: async (ctx, args) => {
@@ -64,7 +63,7 @@ export const getByGoal = query({
         let imageUrls: (string | null)[] = [];
 
         // Case A: New system (Array of Storage IDs)
-        if (note.type === "image" && note.images) {
+        if ((note.type === "image" || note.type === "mixed") && note.images) {
           imageUrls = await Promise.all(
             note.images.map(async (storageId) => {
               // If it's already a full URL (e.g. from external), return it
@@ -75,7 +74,7 @@ export const getByGoal = query({
           );
         }
         // Case B: Legacy system (Single URL in content)
-        else if (note.type === "image" && note.content) {
+        else if ((note.type === "image" || note.type === "mixed") && note.content && note.content.startsWith("http") && !note.content.includes(" ")) {
           imageUrls = [note.content];
         }
 
@@ -89,7 +88,7 @@ export const getByGoal = query({
   },
 });
 
-// 5. Remove note (and clean up stored files)
+// Remove note and clean up stored files
 export const remove = mutation({
   args: { id: v.id("notes") },
   handler: async (ctx, args) => {

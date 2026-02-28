@@ -27,6 +27,7 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const removeNote = useMutation(api.notes.remove);
+  const [returnToDialog, setReturnToDialog] = useState(false);
 
   const handleRemove = async () => {
     try {
@@ -56,6 +57,7 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
   };
 
   const handleEditFromDialog = () => {
+    setReturnToDialog(true);
     setIsDialogOpen(false);
     setTimeout(() => setIsEditing(true), 150); // slight delay to allow smooth modal transition
   };
@@ -137,7 +139,7 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
               </div>
             </div>
 
-            {/* NEW ACTIONS: Edit & Copy */}
+            {/* Edit & Copy */}
             <div className="flex items-center gap-2 pr-6">
               <Button
                 variant="outline"
@@ -181,7 +183,14 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
       {/* Edit Dialog */}
       <UpsertNoteDialog
         open={isEditing}
-        onOpenChange={setIsEditing}
+        onOpenChange={(open) => {
+          setIsEditing(open);
+          // If the edit dialog is closing and we came from the reading dialog, reopen it
+          if (!open && returnToDialog) {
+            setReturnToDialog(false); // Reset the flag
+            setTimeout(() => setIsDialogOpen(true), 150); // Delay for smooth transition
+          }
+        }}
         mode="edit"
         initialData={{
           _id: note._id,

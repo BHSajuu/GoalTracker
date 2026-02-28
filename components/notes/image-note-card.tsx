@@ -30,49 +30,49 @@ interface ImageNoteCardProps {
 }
 
 const MarkdownComponents = {
-  h1: ({node, ...props}: any) => <h1 className="text-lg md:text-xl font-bold mt-4 mb-3 text-foreground" {...props} />,
-  h2: ({node, ...props}: any) => <h2 className="text-base md:text-lg font-bold mt-3 mb-2 text-foreground/90" {...props} />,
-  h3: ({node, ...props}: any) => <h3 className="text-sm md:text-base font-bold mt-4 mb-2 text-foreground/80 uppercase tracking-wide" {...props} />,
-  h4: ({node, ...props}: any) => <h4 className="text-sm font-bold mt-2 mb-2 text-foreground/80" {...props} />,
-  p: ({node, ...props}: any) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
-  ul: ({node, ...props}: any) => <ul className="list-disc pl-8 mb-2 mt-0 space-y-3 marker:text-foreground/50" {...props} />,
-  ol: ({node, ...props}: any) => <ol className="list-decimal pl-8 mb-2 mt-0 space-y-3 marker:text-foreground/50" {...props} />,
-  
+  h1: ({ node, ...props }: any) => <h1 className="text-lg md:text-xl font-bold mt-4 mb-3 text-foreground" {...props} />,
+  h2: ({ node, ...props }: any) => <h2 className="text-base md:text-lg font-bold mt-3 mb-2 text-foreground/90" {...props} />,
+  h3: ({ node, ...props }: any) => <h3 className="text-sm md:text-base font-bold mt-4 mb-2 text-foreground/80 uppercase tracking-wide" {...props} />,
+  h4: ({ node, ...props }: any) => <h4 className="text-sm font-bold mt-2 mb-2 text-foreground/80" {...props} />,
+  p: ({ node, ...props }: any) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
+  ul: ({ node, ...props }: any) => <ul className="list-disc pl-8 mb-2 mt-0 space-y-3 marker:text-foreground/50" {...props} />,
+  ol: ({ node, ...props }: any) => <ol className="list-decimal pl-8 mb-2 mt-0 space-y-3 marker:text-foreground/50" {...props} />,
+
   // Target any nested elements inside LI and strip their vertical margins completely
-  li: ({node, ...props}: any) => <li className="pl-1 [&>*]:my-0" {...props} />,
-  
-  strong: ({node, ...props}: any) => <strong className="font-semibold text-foreground" {...props} />,
-  em: ({node, ...props}: any) => <em className="italic text-foreground/80" {...props} />,
-  a: ({node, ...props}: any) => <a className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
-  blockquote: ({node, ...props}: any) => <blockquote className="border-l-2 border-primary/50 pl-4 py-1.5 my-2 bg-primary/5 rounded-r-lg italic text-muted-foreground" {...props} />,
-  code: ({node, inline, ...props}: any) =>
+  li: ({ node, ...props }: any) => <li className="pl-1 [&>*]:my-0" {...props} />,
+
+  strong: ({ node, ...props }: any) => <strong className="font-semibold text-foreground" {...props} />,
+  em: ({ node, ...props }: any) => <em className="italic text-foreground/80" {...props} />,
+  a: ({ node, ...props }: any) => <a className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
+  blockquote: ({ node, ...props }: any) => <blockquote className="border-l-2 border-primary/50 pl-4 py-1.5 my-2 bg-primary/5 rounded-r-lg italic text-muted-foreground" {...props} />,
+  code: ({ node, inline, ...props }: any) =>
     inline ? (
       <code className="bg-black/40 rounded px-1.5 py-0.5 font-mono text-[11px] md:text-xs text-foreground/90 border border-white/5" {...props} />
     ) : (
       <pre className="bg-black/50 p-3 rounded-xl overflow-x-auto border border-white/10 my-2 custom-scrollbar"><code className="font-mono text-[11px] md:text-xs text-foreground/90" {...props} /></pre>
     ),
-  table: ({node, ...props}: any) => <div className="overflow-x-auto my-3 w-full"><table className="w-full text-sm text-left border-collapse" {...props} /></div>,
-  thead: ({node, ...props}: any) => <thead className="text-xs uppercase bg-black/40 text-foreground/70" {...props} />,
-  tbody: ({node, ...props}: any) => <tbody className="divide-y divide-white/10" {...props} />,
-  tr: ({node, ...props}: any) => <tr className="hover:bg-white/5 transition-colors" {...props} />,
-  th: ({node, ...props}: any) => <th className="px-4 py-2 font-medium border border-white/10 whitespace-nowrap" {...props} />,
-  td: ({node, ...props}: any) => <td className="px-4 py-2 border border-white/10" {...props} />,
+  table: ({ node, ...props }: any) => <div className="overflow-x-auto my-3 w-full"><table className="w-full text-sm text-left border-collapse" {...props} /></div>,
+  thead: ({ node, ...props }: any) => <thead className="text-xs uppercase bg-black/40 text-foreground/70" {...props} />,
+  tbody: ({ node, ...props }: any) => <tbody className="divide-y divide-white/10" {...props} />,
+  tr: ({ node, ...props }: any) => <tr className="hover:bg-white/5 transition-colors" {...props} />,
+  th: ({ node, ...props }: any) => <th className="px-4 py-2 font-medium border border-white/10 whitespace-nowrap" {...props} />,
+  td: ({ node, ...props }: any) => <td className="px-4 py-2 border border-white/10" {...props} />,
 };
 
 // Formats raw AI plain-text into Markdown
 const formatMarkdownDisplay = (text?: string) => {
   if (!text) return "";
   let formatted = text.replace(/\\n/g, '\n');
-  
+
   // \s* forcefully swallows ANY extra spaces or newlines that appear directly after the heading
   formatted = formatted.replace(/\n*(SUMMARY|EXTRACTED TEXT|KEY INSIGHTS|ANALYSIS):\s*/gi, '\n### $1\n');
-  
+
   // Fix inline bullet points
   formatted = formatted.replace(/([a-zA-Z0-9.?!])\s+-\s/g, '$1\n- ');
-  
+
   // Clean up excessive newlines
   formatted = formatted.replace(/\n{3,}/g, '\n\n');
-  
+
   return formatted.trim();
 };
 
@@ -80,7 +80,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [returnToViewOnClose, setReturnToViewOnClose] = useState(false);
-
+  const [returnToViewFromAi, setReturnToViewFromAi] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [activeAnalysisTabUrl, setActiveAnalysisTabUrl] = useState<string | null>(null);
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -89,7 +89,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const [editableAnalysis, setEditableAnalysis] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
-  
+
   const [aiDialogTab, setAiDialogTab] = useState<"preview" | "edit">("preview");
 
   const removeNote = useMutation(api.notes.remove);
@@ -150,10 +150,19 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
     });
   };
 
+  const handleCloseAiDialog = () => {
+    setShowAiDialog(false);
+    if (returnToViewFromAi) {
+      setReturnToViewFromAi(false);
+      setTimeout(() => setIsViewOpen(true), 150); // Small delay for smooth UI transition
+    }
+  };
+
   const handleAnalyze = async (url: string) => {
     setIsViewOpen(false);
     setLightboxIndex(null);
     setReturnToViewOnClose(false);
+    setReturnToViewFromAi(true);
 
     setShowAiDialog(true);
     setCurrentAnalysisImageUrl(url);
@@ -164,7 +173,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
     try {
       const base64 = await getBase64Image(url);
       const rawResult = await analyzeImage({ imageBase64: base64 });
-      
+
       const processedResult = formatMarkdownDisplay(rawResult || "No analysis generated.");
       setEditableAnalysis(processedResult);
     } catch (error: any) {
@@ -176,6 +185,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   };
 
   const handleEditAnalysis = (url: string, existingText: string) => {
+    setReturnToViewFromAi(true); // Always true since this is only called from the Premium View
     setIsViewOpen(false);
     setCurrentAnalysisImageUrl(url);
     setEditableAnalysis(existingText);
@@ -206,7 +216,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
         analysisText: editableAnalysis
       });
       toast.success("Analysis saved securely to this image!");
-      setShowAiDialog(false);
+      handleCloseAiDialog();
     } catch (error: any) {
       toast.error("Failed to save analysis: " + error.message);
     } finally {
@@ -280,7 +290,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
   return (
     <>
-      <Card className="glass md:w-96 group hover:border-primary/40 transition-all duration-300 break-inside-avoid shadow-lg hover:shadow-primary/10">
+      <Card className="glass md:w-96 group hover:border-primary/40 transition-all duration-300 break-inside-avoid">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
           <div className="flex items-center gap-2">
             <Image src="/img.png" alt="Image" width={24} height={24} className="opacity-80" />
@@ -502,7 +512,10 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       )}
 
       {/* AI Analysis/Edit Dialog */}
-      <Dialog open={showAiDialog} onOpenChange={setShowAiDialog}>
+      <Dialog open={showAiDialog} onOpenChange={(open) => {
+        if (!open) handleCloseAiDialog();
+        else setShowAiDialog(true);
+      }}>
         <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[90vh] md:max-h-[95vh] bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0 flex flex-col">
           <div className="p-4 md:p-6 pb-3 md:pb-4 border-b border-white/5 bg-gradient-to-b from-blue-500/10 to-transparent flex items-center justify-between shrink-0">
             <DialogHeader className="flex flex-col md:flex-row w-[95%] justify-between items-start md:items-center gap-3">
@@ -538,16 +551,15 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                   </div>
                   <TabsList className="h-8 bg-black/40 border border-white/5">
                     <TabsTrigger value="preview" className="text-[10px] md:text-xs px-3 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                       <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview
+                      <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview
                     </TabsTrigger>
                     <TabsTrigger value="edit" className="text-[10px] md:text-xs px-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-                       <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit Markdown
+                      <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit Markdown
                     </TabsTrigger>
                   </TabsList>
                 </div>
 
                 <TabsContent value="preview" className="flex-1 min-h-[35vh] bg-black/10 rounded-2xl border border-white/5 p-4 md:p-5 m-0 overflow-auto custom-scrollbar">
-                  {/* 3. ALSO REMOVED WHITESPACE-PRE-WRAP HERE */}
                   <div className="text-xs md:text-sm text-foreground/90 font-medium">
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
                       {editableAnalysis}
@@ -568,7 +580,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
           </div>
 
           <div className="p-4 md:p-5 border-t border-white/5 bg-secondary/10 flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3 shrink-0">
-            <Button variant="ghost" onClick={() => setShowAiDialog(false)} disabled={isAnalyzing || isSaving} className="rounded-xl w-full md:w-auto">
+            <Button variant="ghost" onClick={handleCloseAiDialog} disabled={isAnalyzing || isSaving} className="rounded-xl w-full md:w-auto">
               Dismiss
             </Button>
             {!isAnalyzing && editableAnalysis && (

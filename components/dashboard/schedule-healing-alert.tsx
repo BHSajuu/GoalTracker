@@ -43,18 +43,27 @@ export function ScheduleHealingAlert() {
     return () => clearInterval(interval);
   }, [isHealing]);
 
-  const handleFix = async () => {
+ const handleFix = async () => {
     setIsHealing(true);
     try {
       const result = await recover({ userId });
+      
       if (result.success) {
         toast.success("Schedule Rebalanced", {
           description: result.message,
           icon: <CheckCircle2 className="w-4 h-4 text-green-500" />,
         });
+      } else {
+        // Handle the safe failure response from the backend
+        toast.error("Optimization Incomplete", {
+          description: result.message || "Please try running the agent again.",
+        });
       }
     } catch (error) {
-      toast.error("Optimization failed. Please try again.");
+      // Fallback for actual network/server errors
+      toast.error("System Error", {
+        description: "An unexpected error occurred while communicating with the agent. Please try again."
+      });
     } finally {
       setIsHealing(false); 
     }

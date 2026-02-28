@@ -216,7 +216,10 @@ export const recoverSchedule = action({
       plan = parseAIResponse(content);
     } catch (e) {
       console.error("Parse Error. Content:", content);
-      throw new Error("AI failed to generate valid JSON.");
+      return {
+        success: false,
+        message: "The AI agent couldn't perfectly format the recovery schedule. Please try again.",
+      };
     }
 
     const today = getStartOfDay(Date.now());

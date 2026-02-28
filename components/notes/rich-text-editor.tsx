@@ -291,7 +291,7 @@ export function RichTextEditor({
       <MenuBar editor={editor} />
 
       <div 
-        className="flex-1 custom-scrollbar overflow-y-auto min-h-[275px] cursor-text"
+        className="flex-1 custom-scrollbar overflow-y-auto min-h-[346px] cursor-text"
         onClick={() => {
           if (editor && !editor.isFocused) {
             editor.chain().focus().run();
