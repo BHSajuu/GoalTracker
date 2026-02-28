@@ -60,6 +60,8 @@ const TABS = [
   { id: "image", label: "Image", icon: ImageIcon },
 ];
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 export function UpsertNoteDialog({
   open,
   onOpenChange,
@@ -138,9 +140,29 @@ export function UpsertNoteDialog({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    setSelectedFiles((prev) => [...prev, ...files]);
-    const newPreviews = files.map(file => URL.createObjectURL(file));
+    const validFiles: File[] = [];
+
+    // Check file size before adding to the queue
+    files.forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`Image "${file.name}" is too large. Maximum size is 5MB.`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (validFiles.length === 0) {
+      // Reset the input value so the same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    const newPreviews = validFiles.map(file => URL.createObjectURL(file));
     setPreviewUrls((prev) => [...prev, ...newPreviews]);
+
+    // Reset the input value
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeSelectedFile = (index: number) => {
