@@ -54,7 +54,7 @@ export default defineSchema({
     images: v.optional(v.array(v.string())),
     language: v.optional(v.string()),
     code: v.optional(v.string()),
-    link: v.optional(v.string()),
+    links: v.optional(v.array(v.string())),
     createdAt: v.number(),
     analysis: v.optional(v.record(v.string(), v.string())),
   })

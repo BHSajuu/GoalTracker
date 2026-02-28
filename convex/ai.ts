@@ -342,3 +342,65 @@ export const suggestDescription = action({
     }
   },
 });
+
+
+export const generateAnalyticsInsights = action({
+  args: {
+    statsData: v.string(), // We will pass a stringified JSON of the user's stats
+  },
+  handler: async (ctx, args) => {
+
+    const apiKey = process.env.NVIDIA_MISTRAL_8x22b_API_KEY;
+
+    if (!apiKey) {
+      throw new Error("Missing NVIDIA_MISTRAL_8x22b_API_KEY in Environment Variables. Please add it in the Convex Dashboard.");
+    }
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    });
+
+    try {
+      // Using Mistral's massive 8x22B model via NVIDIA for complex data reasoning
+      const response = await openai.chat.completions.create({
+        model: "mistralai/mixtral-8x22b-instruct-v0.1",
+        messages: [
+          {
+            role: "system",
+         content: `You are an elite productivity coach and data scientist. 
+                  The user can already see their charts and raw numbers. DO NOT repeat stats.
+
+                  CRITICAL RULE: NO PARAGRAPHS ALLOWED. You must explain everything EXCLUSIVELY in short, highly analytical bullet points. 
+
+                  FORMAT YOUR RESPONSE STRICTLY WITH THESE 2 SECTIONS:
+
+                  ### 🧠 Deep Analysis
+                  * [Insightful bullet point explaining a hidden pattern in their workflow]
+                  * [Insightful bullet point explaining why completion rates are what they are]
+                  * [Insightful bullet point identifying a specific bottleneck or success pattern]
+
+                  ### ⚡ Strategic Action Plan
+                  * [Specific, actionable bullet point step to take this week]
+                  * [Specific, actionable bullet point step to fix the identified bottleneck]
+                  * [Specific, actionable bullet point step to optimize scheduling]
+
+                  Keep the tone professional, direct, and highly analytical.`
+          },
+          {
+            role: "user",
+            content: `Here is my data payload. Give me the analysis and action plan strictly in bullet points:\n\n${args.statsData}`
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0.4, 
+        top_p: 0.9,
+      });
+      
+      return response.choices[0]?.message?.content || "Failed to generate AI insights.";
+    } catch (error) {
+      console.error("NVIDIA AI Analytics Error:", error);
+      throw new Error("Failed to generate analytics insights.");
+    }
+  }
+});

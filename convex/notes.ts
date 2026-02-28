@@ -15,7 +15,7 @@ export const create = mutation({
     images: v.optional(v.array(v.string())),
     language: v.optional(v.string()),
     code: v.optional(v.string()),
-    link: v.optional(v.string()),
+    links: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("notes", {
@@ -26,7 +26,7 @@ export const create = mutation({
       images: args.images,
       language: args.language,
       code: args.code,
-      link: args.link,
+      links: args.links,
       createdAt: Date.now(),
     });
   },
@@ -40,14 +40,13 @@ export const update = mutation({
     type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed"))),
     language: v.optional(v.string()),
     code: v.optional(v.string()),
-    link: v.optional(v.string()),
+    links: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates);
   },
 });
-
 export const getByGoal = query({
   args: { goalId: v.id("goals") },
   handler: async (ctx, args) => {

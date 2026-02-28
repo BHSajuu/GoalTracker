@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
-import { Type, Link as LinkIcon, Image as ImageIcon, X, Upload, Loader2, Code, Save, Globe, ScanEye, Sparkles, Laptop, CloudUpload } from "lucide-react";
+import { Type, Link as LinkIcon, Image as ImageIcon, X, Upload, Loader2, Code, Save, Globe, ScanEye, Sparkles, Laptop, CloudUpload, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ interface UpsertNoteDialogProps {
     images?: string[];
     language?: string;
     code?: string;
-    link?: string;
+    links?: string[];
   };
 }
 
@@ -55,7 +55,7 @@ export function UpsertNoteDialog({
 
   // Content States
   const [text, setText] = useState("");
-  const [link, setLink] = useState("");
+  const [links, setLinks] = useState<string[]>([""]);
   const [codeSnippet, setCodeSnippet] = useState("");
   const [language, setLanguage] = useState("javascript");
 
@@ -88,7 +88,7 @@ export function UpsertNoteDialog({
         if (initialData.content) setActiveTab("text");
         else if (initialData.images && initialData.images.length > 0) setActiveTab("image");
         else if (initialData.code) setActiveTab("code");
-        else if (initialData.link) setActiveTab("link");
+        else if (initialData.links && initialData.links.length > 0) setActiveTab("link");
         else setActiveTab("text");
       } else {
         setActiveTab(initialData.type);
@@ -98,9 +98,14 @@ export function UpsertNoteDialog({
       if (initialData.type === "text") setText(initialData.content || "");
       if (initialData.type === "mixed" && initialData.content) setText(initialData.content);
 
-      // Populate link
-      if (initialData.type === "link") setLink(initialData.content || "");
-      if (initialData.type === "mixed" && initialData.link) setLink(initialData.link);
+      // Populate links 
+      if (initialData.type === "link" || initialData.type === "mixed") {
+        if (initialData.links && initialData.links.length > 0) {
+          setLinks(initialData.links);
+        } else {
+          setLinks([""]);
+        }
+      }
 
       // Populate code
       if (initialData.type === "code") {
@@ -125,7 +130,7 @@ export function UpsertNoteDialog({
 
   const resetForm = () => {
     setText("");
-    setLink("");
+    setLinks([""]);
     setCodeSnippet("");
     setLanguage("javascript");
     setSelectedFiles([]);
@@ -220,7 +225,7 @@ export function UpsertNoteDialog({
   const checkTabContent = (tabId: string) => {
     if (tabId === "text") return text.trim() !== "" && text !== "<p></p>";
     if (tabId === "code") return codeSnippet.trim() !== "";
-    if (tabId === "link") return link.trim() !== "";
+    if (tabId === "link") return links.some(l => l.trim() !== ""); 
     if (tabId === "image") return selectedFiles.length > 0 || existingImageUrls.length > 0;
     return false;
   };
@@ -278,23 +283,27 @@ export function UpsertNoteDialog({
       }
 
       let payloadContent = undefined;
-      let payloadLink = undefined;
+      let payloadLinks = undefined;
       let payloadCode = undefined;
       let payloadLanguage = undefined;
 
-      // Map fields cleanly
+      const finalCleanLinks = links.filter(l => l.trim() !== "");
+
+      // Map fields cleanly 
       if (finalType === "mixed") {
         payloadContent = hasText ? text : undefined;
-        payloadLink = hasLink ? link : undefined;
+        payloadLinks = hasLink ? finalCleanLinks : undefined;
         payloadCode = hasCode ? codeSnippet : undefined;
         payloadLanguage = hasCode ? language : undefined;
       } else {
         // Fallback backward compatibility for single-type legacy nodes
         if (finalType === "text") payloadContent = text;
-        if (finalType === "link") payloadContent = link;
         if (finalType === "code") {
           payloadContent = codeSnippet;
           payloadLanguage = language;
+        }
+        if (finalType === "link") {
+          payloadLinks = finalCleanLinks;
         }
         if (finalType === "image" && mode === "edit" && !deletedLegacyImage && initialData?.content && initialData.content.startsWith("http")) {
           payloadContent = initialData.content;
@@ -307,7 +316,7 @@ export function UpsertNoteDialog({
         images: finalImages,
         language: payloadLanguage,
         code: payloadCode,
-        link: payloadLink,
+        links: payloadLinks, 
       };
 
       if (hasImages) {
@@ -413,24 +422,26 @@ export function UpsertNoteDialog({
                           </div>
                         </>
                       ) : (
-                        /* STANDARD ORBITAL ANIMATION (For text/code/link) */
-                        <div className="relative flex items-center justify-center w-24 h-24 mb-6">
+                        /* QUICK & AWESOME SAVING ANIMATION */
+                        <div className="relative flex items-center justify-center w-20 h-20 mb-6">
+                          {/* Fast expanding ping */}
                           <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                            className="absolute inset-0 rounded-full border-t-2 border-r-2 border-primary shadow-[0_0_15px_rgba(var(--primary),0.5)]"
+                            animate={{ scale: [1, 2.5], opacity: [0.8, 0] }}
+                            transition={{ repeat: Infinity, duration: 1, ease: "easeOut" }}
+                            className="absolute inset-0 rounded-full bg-primary/40 blur-sm"
                           />
                           <motion.div
-                            animate={{ rotate: -360 }}
-                            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-                            className="absolute inset-2 rounded-full border-b-2 border-l-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                            animate={{ scale: [1, 1.8], opacity: [1, 0] }}
+                            transition={{ repeat: Infinity, duration: 1, delay: 0.2, ease: "easeOut" }}
+                            className="absolute inset-2 rounded-full border border-blue-400/80"
                           />
+                          {/* Inner core pulse */}
                           <motion.div
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                            className="relative z-10 bg-background/50 backdrop-blur-md p-3 rounded-full border border-white/10"
+                            animate={{ scale: [0.9, 1.1, 0.9] }}
+                            transition={{ repeat: Infinity, duration: 0.5, ease: "easeInOut" }}
+                            className="relative z-10 bg-gradient-to-tr from-primary to-blue-500 p-4 rounded-full shadow-[0_0_30px_rgba(var(--primary),0.6)]"
                           >
-                            <Save className="w-6 h-6 text-primary" />
+                            <Save className="w-6 h-6 text-white" />
                           </motion.div>
                         </div>
                       )}
@@ -602,7 +613,7 @@ export function UpsertNoteDialog({
                         </motion.div>
                       )}
 
-                      {/* LINK TAB */}
+                      {/* LINK TAB  */}
                       {activeTab === "link" && (
                         <motion.div
                           key="link"
@@ -610,24 +621,61 @@ export function UpsertNoteDialog({
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -5 }}
                           transition={{ duration: 0.2 }}
-                          className="flex flex-col items-center justify-center py-12 space-y-6"
+                          className="flex flex-col items-center justify-start py-8 space-y-6"
                         >
                           <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-2 border border-primary/10 shadow-lg shadow-primary/5">
                             <Globe className="w-8 h-8 text-primary" />
                           </div>
-                          <div className="w-full max-w-md space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground ml-1 uppercase tracking-wider">External URL</label>
-                            <div className="relative">
-                              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <Input
-                                placeholder="https://example.com"
-                                value={link}
-                                onChange={(e) => setLink(e.target.value)}
-                                className="pl-9 h-12 bg-secondary/30 border-white/10 focus:border-primary/50 text-base"
-                              />
+                          <div className="w-full max-w-md space-y-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <label className="text-xs font-medium text-muted-foreground ml-1 uppercase tracking-wider">External References</label>
                             </div>
+
+                            {/* Multi-Link List Generator */}
+                            <div className="space-y-3">
+                              {links.map((linkValue, index) => (
+                                <div key={index} className="flex items-center gap-2 relative group">
+                                  <div className="relative flex-1">
+                                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="https://example.com"
+                                      value={linkValue}
+                                      onChange={(e) => {
+                                        const updatedLinks = [...links];
+                                        updatedLinks[index] = e.target.value;
+                                        setLinks(updatedLinks);
+                                      }}
+                                      className="pl-9 h-12 bg-secondary/30 border-white/10 focus:border-primary/50 text-base transition-all"
+                                    />
+                                  </div>
+                                  {links.length > 1 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        const updatedLinks = [...links];
+                                        updatedLinks.splice(index, 1);
+                                        setLinks(updatedLinks);
+                                      }}
+                                      className="text-red-400 hover:text-red-300 hover:bg-red-400/10 shrink-0"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              onClick={() => setLinks([...links, ""])}
+                              className="w-full border-dashed border-white/20 text-muted-foreground hover:text-white mt-2 h-10"
+                            >
+                              <Plus className="w-4 h-4 mr-2" /> Add another link
+                            </Button>
+
                             <p className="text-[11px] text-muted-foreground text-center pt-2">
-                              Paste links from YouTube, GitHub, Google Docs, or any other website.
+                              Paste multiple links from YouTube, GitHub, Google Docs, or any other website.
                             </p>
                           </div>
                         </motion.div>
