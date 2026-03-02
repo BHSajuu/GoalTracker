@@ -43,7 +43,7 @@ export const createGoalWithTasks = mutation({
         description: v.optional(v.string()),
         priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
         estimatedTime: v.number(),
-        dueDateOffset: v.number(), // We receive offset (e.g., day 1, day 5)
+        dueDateOffset: v.number(), 
       })
     ),
   },
@@ -65,6 +65,13 @@ export const createGoalWithTasks = mutation({
     const dayInMillis = 24 * 60 * 60 * 1000;
 
     for (const task of tasks) {
+      let calculatedDueDate = now + (task.dueDateOffset * dayInMillis);
+      
+      // VALIDATION: Cap the task due date so it doesn't exceed the goal's target date
+      if (calculatedDueDate > goalData.targetDate) {
+        calculatedDueDate = goalData.targetDate;
+      }
+
       await ctx.db.insert("tasks", {
         userId: args.userId,
         goalId: goalId,
@@ -72,7 +79,7 @@ export const createGoalWithTasks = mutation({
         description: task.description,
         priority: task.priority,
         estimatedTime: task.estimatedTime,
-        dueDate: now + (task.dueDateOffset * dayInMillis), // Calculate actual date
+        dueDate: calculatedDueDate,
         completed: false,
         createdAt: now,
       });
@@ -127,27 +134,52 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("goals") },
   handler: async (ctx, args) => {
-    // Delete all tasks associated with this goal
+    // 1. Clean up Tasks and their associated Focus Sessions
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
       .collect();
 
     for (const task of tasks) {
+      // Find and delete all focus sessions for this task
+      const focusSessions = await ctx.db
+        .query("focusSessions")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      
+      for (const session of focusSessions) {
+        await ctx.db.delete(session._id);
+      }
+      
+      // Delete the task itself
       await ctx.db.delete(task._id);
     }
 
-    // Delete all notes associated with this goal
+    // 2. Clean up Notes and their associated Storage Files
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
       .collect();
 
     for (const note of notes) {
+      // If it has storage IDs, delete the files from storage
+      if (note.images) {
+        for (const storageId of note.images) {
+          // Only attempt to delete if it looks like a Convex ID (not an external URL)
+          if (!storageId.startsWith("http")) {
+            try {
+              await ctx.storage.delete(storageId);
+            } catch (e) {
+              console.error("Failed to delete storage file:", storageId);
+            }
+          }
+        }
+      }
+      // Delete the note itself
       await ctx.db.delete(note._id);
     }
 
-    // Delete the goal
+    // 3. Finally, delete the goal
     await ctx.db.delete(args.id);
   },
 });

@@ -52,44 +52,68 @@ export const getByGoal = query({
 });
 
 export const getTodayTasks = query({
-  args: { userId: v.id("users") },
+  args: {
+    userId: v.id("users"),
+    startOfDay: v.optional(v.number()),
+    endOfDay: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    let start = args.startOfDay;
+    let end = args.endOfDay;
 
-    const allTasks = await ctx.db
+    // Fallback to server time if client doesn't provide local time
+    if (!start || !end) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      start = today.getTime();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      end = tomorrow.getTime();
+    }
+
+    const tasks = await ctx.db
       .query("tasks")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_and_date", (q) =>
+        q
+          .eq("userId", args.userId)
+          .gte("dueDate", start!)
+          .lt("dueDate", end!)
+      )
       .collect();
 
-    return allTasks.filter((task) => {
-      if (task.isArchived) return false;
-      if (!task.dueDate) return false;
-      return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
-    });
+    return tasks.filter((task) => !task.isArchived);
   },
 });
 
 export const getUpcomingTasks = query({
-  args: { userId: v.id("users"), days: v.number() },
+  args: {
+    userId: v.id("users"),
+    days: v.number(),
+    startOfDay: v.optional(v.number())
+  },
   handler: async (ctx, args) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endDate = new Date(today);
+    let start = args.startOfDay;
+
+    if (!start) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      start = today.getTime();
+    }
+
+    const endDate = new Date(start);
     endDate.setDate(endDate.getDate() + args.days);
 
-    const allTasks = await ctx.db
+    const tasks = await ctx.db
       .query("tasks")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_and_date", (q) =>
+        q
+          .eq("userId", args.userId)
+          .gte("dueDate", start!)
+          .lt("dueDate", endDate.getTime())
+      )
       .collect();
 
-    return allTasks.filter((task) => {
-      if (task.isArchived) return false;
-      if (!task.dueDate) return false;
-      return task.dueDate >= today.getTime() && task.dueDate < endDate.getTime();
-    });
+    return tasks.filter((task) => !task.isArchived);
   },
 });
 
@@ -105,11 +129,17 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
-    const filteredUpdates: any = Object.fromEntries(
-      Object.entries(updates).filter(([, value]) => value !== undefined)
-    );
 
-    if (updates.completed === true) {
+    // Fetch the task first to check its existing completedAt status
+    const task = await ctx.db.get(id);
+    if (!task) return;
+
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined)
+    ) as Partial<typeof updates> & { completedAt?: number };
+
+    // Only set a new completedAt if it doesn't already have one.
+    if (updates.completed === true && !task.completedAt) {
       filteredUpdates.completedAt = Date.now();
     }
 
@@ -125,13 +155,20 @@ export const toggleComplete = mutation({
 
     const newCompleted = !task.completed;
 
-    // 1. Update the task
-    await ctx.db.patch(args.id, {
+    const patchData: { completed: boolean; completedAt?: number } = {
       completed: newCompleted,
-      completedAt: newCompleted ? Date.now() : undefined,
-    });
+    };
 
-    // 2. Update Goal Progress immediately (eliminates the need for a second client call)
+    // Only assign a new timestamp if it's the FIRST time being completed.
+    // If they are re-checking an accidentally unchecked task, it keeps its original date!
+    if (newCompleted && !task.completedAt) {
+      patchData.completedAt = Date.now();
+    }
+
+    // 1. Update the task
+    await ctx.db.patch(args.id, patchData);
+
+    // 2. Update Goal Progress immediately
     const allGoalTasks = await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
@@ -163,6 +200,7 @@ export const archive = mutation({
   },
 });
 
+
 // Hard Delete (Permanent)
 export const remove = mutation({
   args: { id: v.id("tasks") },
@@ -178,7 +216,7 @@ export const saveFocusSession = mutation({
     taskId: v.id("tasks"),
     startTime: v.number(),
     endTime: v.number(),
-    duration: v.number(), // In minutes
+    duration: v.number(),
     status: v.union(v.literal("completed"), v.literal("interrupted")),
   },
   handler: async (ctx, args) => {
@@ -192,7 +230,7 @@ export const saveFocusSession = mutation({
       status: args.status,
     });
 
-    //  Aggregate this time into the task's 'actualTime'
+    // Aggregate this time into the task's 'actualTime'
     const task = await ctx.db.get(args.taskId);
     if (task) {
       const currentActual = task.actualTime || 0;
@@ -214,10 +252,10 @@ export const getEfficiencyStats = query({
 
     // Filter for completed tasks that have both estimated and actual time recorded
     const completedTasks = tasks.filter(
-      (t) => 
-        t.completed && 
+      (t) =>
+        t.completed &&
         t.completedAt &&
-        t.estimatedTime !== undefined && 
+        t.estimatedTime !== undefined &&
         t.estimatedTime > 0 &&
         t.actualTime !== undefined
     );
@@ -236,31 +274,34 @@ export const getEfficiencyStats = query({
 });
 
 export const getStats = query({
-  args: { userId: v.id("users") },
+  args: {
+    userId: v.id("users"),
+    localTodayStart: v.optional(v.number())
+  },
   handler: async (ctx, args) => {
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
-    // Stats include archived tasks to preserve history
+    let todayTime = args.localTodayStart;
+    if (!todayTime) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      todayTime = today.getTime();
+    }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoTime = todayTime - (7 * 24 * 60 * 60 * 1000);
 
-    // Streak Calculation Start
     const completedTasksWithDates = tasks
       .filter((t) => t.completed && t.completedAt)
       .map((t) => new Date(t.completedAt!).setHours(0, 0, 0, 0))
-      .sort((a, b) => b - a); // Descending
+      .sort((a, b) => b - a);
 
     const uniqueDays = Array.from(new Set(completedTasksWithDates));
 
     let currentStreak = 0;
-    const todayTime = today.getTime();
-    const yesterdayTime = new Date(today).setDate(today.getDate() - 1);
+    const yesterdayTime = todayTime - (24 * 60 * 60 * 1000);
 
     const hasCompletedToday = uniqueDays.includes(todayTime);
     const hasCompletedYesterday = uniqueDays.includes(yesterdayTime);
@@ -270,42 +311,36 @@ export const getStats = query({
       for (const day of uniqueDays) {
         if (day === checkDate) {
           currentStreak++;
-          const d = new Date(checkDate);
-          d.setDate(d.getDate() - 1);
-          checkDate = d.getTime();
+          checkDate -= (24 * 60 * 60 * 1000);
         }
       }
     }
-    // Streak Calculation End
 
     const completedThisWeek = tasks.filter(
       (task) =>
         task.completed &&
         task.completedAt &&
-        task.completedAt >= weekAgo.getTime()
+        task.completedAt >= weekAgoTime
     ).length;
 
     const totalCompleted = tasks.filter((task) => task.completed).length;
-    // For pending, we exclude archived
     const totalPending = tasks.filter((task) => !task.completed && !task.isArchived).length;
 
     const dailyData = [];
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
+      const dateStart = todayTime - (i * 24 * 60 * 60 * 1000);
+      const nextDate = dateStart + (24 * 60 * 60 * 1000);
 
       const completedOnDay = tasks.filter(
         (task) =>
           task.completed &&
           task.completedAt &&
-          task.completedAt >= date.getTime() &&
-          task.completedAt < nextDate.getTime()
+          task.completedAt >= dateStart &&
+          task.completedAt < nextDate
       ).length;
 
       dailyData.push({
-        date: date.toLocaleDateString("en-US", { weekday: "short" }),
+        date: new Date(dateStart).toLocaleDateString("en-US", { weekday: "short" }),
         completed: completedOnDay,
       });
     }

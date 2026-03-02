@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -7,20 +8,33 @@ import Link from "next/link";
 import { CheckCircle2, Circle, ArrowRight, Plus, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 interface TodayTasksProps {
   userId: Id<"users">;
 }
 
 export function TodayTasks({ userId }: TodayTasksProps) {
-  const todayTasks = useQuery(api.tasks.getTodayTasks, { userId });
+ 
+  // Calculate local start and end of day to prevent UTC timezone mismatch bugs
+  const { startOfDay, endOfDay } = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const end = start + 24 * 60 * 60 * 1000;
+    return { startOfDay: start, endOfDay: end };
+  }, []);
+
+  const todayTasks = useQuery(api.tasks.getTodayTasks, { 
+    userId, 
+    startOfDay, 
+    endOfDay 
+  });
+  
   const goals = useQuery(api.goals.getByUser, { userId });
   const toggleComplete = useMutation(api.tasks.toggleComplete);
-  const updateGoalProgress = useMutation(api.goals.updateProgress);
 
-  const handleToggle = async (taskId: Id<"tasks">, goalId: Id<"goals">) => {
+  const handleToggle = async (taskId: Id<"tasks">) => {
     await toggleComplete({ id: taskId });
-    await updateGoalProgress({ id: goalId });
   };
 
   const getGoalColor = (goalId: Id<"goals">) => {
@@ -76,7 +90,7 @@ export function TodayTasks({ userId }: TodayTasksProps) {
               )}
             >
               <button
-                onClick={() => handleToggle(task._id, task.goalId)}
+                onClick={() => handleToggle(task._id)}
                 className="mt-0.5 shrink-0"
               >
                 {task.completed ? (
@@ -126,12 +140,12 @@ export function TodayTasks({ userId }: TodayTasksProps) {
             </div>
           ))}
           
-          {todayTasks.length > 5 && (
+          {todayTasks.length > 3 && (
             <Link
               href="/dashboard/tasks"
               className="block text-center text-sm text-primary hover:text-primary/80 py-2 transition-colors"
             >
-              +{todayTasks.length - 5} more tasks
+              +{todayTasks.length - 3} more tasks
             </Link>
           )}
         </div>
