@@ -50,7 +50,7 @@ export const createGoalWithTasks = mutation({
   handler: async (ctx, args) => {
     const { tasks, ...goalData } = args;
 
-    // 1. Create the Goal
+    // Create the Goal
     const goalId = await ctx.db.insert("goals", {
       ...goalData,
       status: "active",
@@ -60,14 +60,14 @@ export const createGoalWithTasks = mutation({
       targetDate: goalData.targetDate,
     });
 
-    // 2. Create the Tasks
+    // Create the Tasks
     const now = Date.now();
     const dayInMillis = 24 * 60 * 60 * 1000;
 
     for (const task of tasks) {
       let calculatedDueDate = now + (task.dueDateOffset * dayInMillis);
       
-      // VALIDATION: Cap the task due date so it doesn't exceed the goal's target date
+      // Cap the task due date so it doesn't exceed the goal's target date
       if (calculatedDueDate > goalData.targetDate) {
         calculatedDueDate = goalData.targetDate;
       }
@@ -109,6 +109,7 @@ export const getById = query({
 export const update = mutation({
   args: {
     id: v.id("goals"),
+    userId: v.id("users"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     category: v.optional(v.string()),
@@ -119,7 +120,13 @@ export const update = mutation({
     imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, userId, ...updates } = args;
+    
+    // Fetch and verify ownership
+    const goal = await ctx.db.get(id);
+    if (!goal) throw new Error("Goal not found");
+    if (goal.userId !== userId) throw new Error("Unauthorized to update this goal");
+
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     );
@@ -132,9 +139,16 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("goals") },
+  args: { 
+    id: v.id("goals"),
+    userId: v.id("users") 
+  },
   handler: async (ctx, args) => {
-    // 1. Clean up Tasks and their associated Focus Sessions
+    const goal = await ctx.db.get(args.id);
+    if (!goal) throw new Error("Goal not found");
+    if (goal.userId !== args.userId) throw new Error("Unauthorized to delete this goal");
+
+    //  Clean up Tasks and their associated Focus Sessions
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
@@ -155,7 +169,7 @@ export const remove = mutation({
       await ctx.db.delete(task._id);
     }
 
-    // 2. Clean up Notes and their associated Storage Files
+    // Clean up Notes and their associated Storage Files
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
@@ -170,7 +184,8 @@ export const remove = mutation({
             try {
               await ctx.storage.delete(storageId);
             } catch (e) {
-              console.error("Failed to delete storage file:", storageId);
+              console.error("Failed to delete storage file:", storageId, e);
+              // We do NOT throw here so that the DB deletion can still proceed
             }
           }
         }
@@ -179,26 +194,36 @@ export const remove = mutation({
       await ctx.db.delete(note._id);
     }
 
-    // 3. Finally, delete the goal
+    // Finally, delete the goal
     await ctx.db.delete(args.id);
   },
 });
 
 export const updateProgress = mutation({
-  args: { id: v.id("goals") },
+  args: { 
+    id: v.id("goals"),
+    userId: v.id("users")
+  },
   handler: async (ctx, args) => {
+    const goal = await ctx.db.get(args.id);
+    if (!goal) throw new Error("Goal not found");
+    if (goal.userId !== args.userId) throw new Error("Unauthorized to update progress");
+
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
       .collect();
 
-    if (tasks.length === 0) {
+    // Filter out archived tasks - they shouldn't count towards the goal progress
+    const activeTasks = tasks.filter((task) => !task.isArchived);
+
+    if (activeTasks.length === 0) {
       await ctx.db.patch(args.id, { progress: 0, updatedAt: Date.now() });
       return 0;
     }
 
-    const completedTasks = tasks.filter((task) => task.completed).length;
-    const progress = Math.round((completedTasks / tasks.length) * 100);
+    const completedTasks = activeTasks.filter((task) => task.completed).length;
+    const progress = Math.round((completedTasks / activeTasks.length) * 100);
 
     await ctx.db.patch(args.id, {
       progress,

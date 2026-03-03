@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/lib/auth-context";
@@ -49,12 +49,21 @@ const AIMarkdownComponents = {
 
 export default function AnalyticsPage() {
   const { userId } = useAuth();
+   // Calculate local timezone start of day once per mount
+  const localTodayStart = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.getTime();
+  }, []);
   const queryArgs = userId ? { userId } : "skip";
 
   const goals = useQuery(api.goals.getByUser, queryArgs);
   const tasks = useQuery(api.tasks.getByUser, queryArgs);
-  const stats = useQuery(api.tasks.getStats, queryArgs);
-
+  // Inject required timezone metric for accurate streak / daily stats calculation
+  const stats = useQuery(
+    api.tasks.getStats, 
+    userId ? { userId, localTodayStart } : "skip"
+  );
   const generateInsights = useAction(api.ai.generateAnalyticsInsights);
   const [isGenerating, setIsGenerating] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);

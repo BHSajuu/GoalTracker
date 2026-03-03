@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id, Doc } from "@/convex/_generated/dataModel";
@@ -32,10 +32,12 @@ export function PlanDayDialog({ userId, isOpen, onOpenChange, onPlanComplete }: 
   const [localOverflow, setLocalOverflow] = useState<Doc<"tasks">[]>([]);
   const [hasManualChanges, setHasManualChanges] = useState(false);
   
-  // Timestamps
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
+ // Wrapped Date creation in useMemo to prevent infinite re-rendering and Convex re-fetching
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
   // Fetch suggestions
   const plan = useQuery(api.scheduler.getSuggestion, 
     isOpen ? { 

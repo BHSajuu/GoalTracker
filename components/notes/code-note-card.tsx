@@ -32,7 +32,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
 
   const handleRemove = async () => {
     try {
-      await removeNote({ id: note._id });
+      await removeNote({ id: note._id, userId: note.userId });
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
@@ -59,6 +59,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
       setIsSaving(true);
       await updateNote({
         id: note._id,
+        userId: note.userId,
         type: "code",
         content: editContent,
         language: note.language, 
@@ -159,6 +160,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
       <UpsertNoteDialog
         open={isEditingMetadata}
         onOpenChange={setIsEditingMetadata}
+        userId={note.userId}
         mode="edit"
         initialData={{
           _id: note._id,

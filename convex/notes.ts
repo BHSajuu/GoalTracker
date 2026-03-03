@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-
 export const generateUploadUrl = mutation(async (ctx) => {
   return await ctx.storage.generateUploadUrl();
 });
@@ -18,6 +17,10 @@ export const create = mutation({
     links: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    const goal = await ctx.db.get(args.goalId);
+    if (!goal) throw new Error("Goal not found");
+    if (goal.userId !== args.userId) throw new Error("Unauthorized to add notes to this goal");
+
     return await ctx.db.insert("notes", {
       userId: args.userId,
       goalId: args.goalId,
@@ -35,6 +38,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("notes"),
+    userId: v.id("users"),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
     type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed"))),
@@ -43,13 +47,25 @@ export const update = mutation({
     links: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, userId, ...updates } = args;
+
+    const note = await ctx.db.get(id);
+    if (!note) throw new Error("Note not found");
+    if (note.userId !== userId) throw new Error("Unauthorized to update this note");
+
     await ctx.db.patch(id, updates);
   },
 });
+
 export const getByGoal = query({
-  args: { goalId: v.id("goals") },
+  args: { 
+    goalId: v.id("goals"),
+    userId: v.id("users") 
+  },
   handler: async (ctx, args) => {
+    const goal = await ctx.db.get(args.goalId);
+    if (!goal || goal.userId !== args.userId) return [];
+
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_goal", (q) => q.eq("goalId", args.goalId))
@@ -87,11 +103,15 @@ export const getByGoal = query({
   },
 });
 
-// Remove note and clean up stored files
 export const remove = mutation({
-  args: { id: v.id("notes") },
+  args: { 
+    id: v.id("notes"),
+    userId: v.id("users") 
+  },
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.id);
+    if (!note) throw new Error("Note not found");
+    if (note.userId !== args.userId) throw new Error("Unauthorized to delete this note");
 
     // If it has storage IDs, delete the files from storage
     if (note && note.images) {
@@ -114,13 +134,14 @@ export const remove = mutation({
 export const saveImageAnalysis = mutation({
   args: {
     id: v.id("notes"),
+    userId: v.id("users"),
     imageUrl: v.string(),
     analysisText: v.string(),
   },
   handler: async (ctx, args) => {
-    
     const note = await ctx.db.get(args.id);
     if (!note) throw new Error("Note not found");
+    if (note.userId !== args.userId) throw new Error("Unauthorized to analyze this note");
 
     // Get the existing analysis map, or create a new empty one
     const currentAnalysis = note.analysis ?? {};

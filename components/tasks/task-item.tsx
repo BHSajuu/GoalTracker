@@ -64,34 +64,33 @@ export function TaskItem({
     if (isToggling) return;
     setIsToggling(true);
     try {
-      await toggleComplete({ id: task._id });
-      await updateGoalProgress({ id: goalId });
+      await toggleComplete({ id: task._id, userId: task.userId });
+      await updateGoalProgress({ id: goalId, userId: task.userId });
     } finally {
       setIsToggling(false);
     }
   }; 
 
-  const handleDelete = async () => {
+ const handleDelete = async () => {
     if (isHardDelete) {
       if (confirm("This will permanently delete the task. Continue?")) {
-        await removeTask({ id: task._id });
-        await updateGoalProgress({ id: goalId });
+        await removeTask({ id: task._id, userId: task.userId });
+        await updateGoalProgress({ id: goalId, userId: task.userId });
         toast.success("Task permanently deleted");
       }
     } else {
-      await archiveTask({ id: task._id });
-      await updateGoalProgress({ id: goalId });
+      await archiveTask({ id: task._id, userId: task.userId });
+      await updateGoalProgress({ id: goalId, userId: task.userId });
       toast.success("Task removed from list");
     }
   };
 
-  const handlePriorityChange = async (
+ const handlePriorityChange = async (
     priority: "low" | "medium" | "high"
   ) => {
-    await updateTask({ id: task._id, priority });
+    await updateTask({ id: task._id, userId: task.userId, priority });
     toast.success("Priority updated");
   };
-
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const today = new Date();

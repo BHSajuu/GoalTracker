@@ -42,12 +42,12 @@ export function GoalCard({ goal, style }: GoalCardProps) {
   const handleStatusChange = async (
     status: "active" | "completed" | "paused"
   ) => {
-    await updateGoal({ id: goal._id, status });
+    await updateGoal({ id: goal._id, userId: goal.userId, status });
     toast.success(`Goal ${status === "completed" ? "completed" : status}`);
   };
 
   const handleDelete = async () => {
-    await removeGoal({ id: goal._id });
+    await removeGoal({ id: goal._id, userId: goal.userId });
     toast.success("Goal deleted");
   };
 
@@ -73,7 +73,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* --- BACKGROUND IMAGE LAYER --- */}
+        {/* BACKGROUND IMAGE LAYER */}
         {hasImage && (
           <>
             <img
@@ -93,7 +93,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
           }}
         />
 
-        {/* --- CONTENT LAYER --- */}
+        {/* CONTENT LAYER */}
         <div className={cn("p-5 pt-3 relative z-10 flex flex-col h-full", hasImage && "text-white")}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">

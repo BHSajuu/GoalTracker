@@ -31,7 +31,7 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
 
   const handleRemove = async () => {
     try {
-      await removeNote({ id: note._id });
+      await removeNote({ id: note._id, userId: note.userId });
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
@@ -191,6 +191,7 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
             setTimeout(() => setIsDialogOpen(true), 150); // Delay for smooth transition
           }
         }}
+        userId={note.userId}
         mode="edit"
         initialData={{
           _id: note._id,

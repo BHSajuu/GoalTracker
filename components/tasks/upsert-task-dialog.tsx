@@ -159,12 +159,13 @@ const handleSuggestDescription = async () => {
           goalId: goalId as Id<"goals">,
           ...commonData,
         });
-        await updateGoalProgress({ id: goalId as Id<"goals"> });
+        await updateGoalProgress({ id: goalId as Id<"goals">, userId });
         toast.success("Task created successfully!");
       } else {
         if (!initialData?._id) return;
-        await updateTask({
+         await updateTask({
           id: initialData._id,
+          userId,
           ...commonData,
         });
         toast.success("Task updated successfully!");

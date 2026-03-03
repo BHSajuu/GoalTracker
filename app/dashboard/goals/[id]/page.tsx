@@ -21,7 +21,7 @@ import {
   Clock,
   Trophy,
   AlertCircle,
-  Edit // Added Edit icon
+  Edit
 } from "lucide-react";
 import { toast } from "sonner";
 import { GoalDetailSkeleton } from "@/components/goals/goal-detail-skeleton";
@@ -43,7 +43,7 @@ export default function GoalDetailPage({
   );
   const tasks = useQuery(
     api.tasks.getByGoal,
-    resolvedParams.id ? { goalId: resolvedParams.id as Id<"goals"> } : "skip"
+    resolvedParams.id && userId ? { goalId: resolvedParams.id as Id<"goals">, userId } : "skip"
   );
 
   const removeGoal = useMutation(api.goals.remove);
@@ -51,7 +51,7 @@ export default function GoalDetailPage({
   const handleDelete = async () => {
     if (!goal) return;
     if (confirm("Are you sure you want to delete this goal and all its tasks?")) {
-      await removeGoal({ id: goal._id });
+      await removeGoal({ id: goal._id, userId: userId! });
       toast.success("Goal deleted");
       router.push("/dashboard/goals");
     }

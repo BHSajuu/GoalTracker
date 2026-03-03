@@ -10,13 +10,23 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { StreakCalendar } from "@/components/dashboard/streak-calendar";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
 import { ScheduleHealingAlert } from "@/components/dashboard/schedule-healing-alert";
+import { useMemo } from "react";
 
 export default function DashboardPage() {
   const { userId } = useAuth();
+  // Calculate local timezone start of day once per mount
+  const localTodayStart = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.getTime();
+  }, []);
 
   const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
-  const stats = useQuery(api.tasks.getStats, userId ? { userId } : "skip");
-  const tasks = useQuery(api.tasks.getByUser, userId ? { userId } : "skip");
+// Inject required timezone metric for accurate streak / daily stats calculation
+  const stats = useQuery(
+    api.tasks.getStats, 
+    userId ? { userId, localTodayStart } : "skip"
+  );  const tasks = useQuery(api.tasks.getByUser, userId ? { userId } : "skip");
 
   const isLoading = goals === undefined || stats === undefined;
 

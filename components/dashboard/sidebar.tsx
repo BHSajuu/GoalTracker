@@ -10,7 +10,6 @@ import {
   CheckSquare,
   BarChart3,
   LogOut,
-  Zap,
   StickyNote,
 } from "lucide-react";
 import {

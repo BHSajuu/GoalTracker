@@ -89,7 +89,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
   const handleRemove = async () => {
     try {
-      await removeNote({ id: note._id });
+      await removeNote({ id: note._id, userId: note.userId });
       toast.success("Mixed note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
@@ -170,6 +170,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
     try {
       await saveImageAnalysis({
         id: note._id,
+        userId: note.userId,
         imageUrl: currentAnalysisImageUrl,
         analysisText: editableAnalysis
       });
@@ -567,6 +568,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
             setTimeout(() => setIsDialogOpen(true), 150);
           }
         }}
+        userId={note.userId}
         mode="edit"
         initialData={{ _id: note._id, type: "mixed", content: note.content, imageUrls: note.imageUrls, images: note.images, code: note.code, links: note.links, language: note.language }}
       />

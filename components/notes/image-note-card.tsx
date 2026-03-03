@@ -98,7 +98,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
   const handleRemove = async () => {
     try {
-      await removeNote({ id: note._id });
+      await removeNote({ id: note._id, userId: note.userId });
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
@@ -212,6 +212,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
     try {
       await saveImageAnalysis({
         id: note._id,
+        userId: note.userId,
         imageUrl: currentAnalysisImageUrl,
         analysisText: editableAnalysis
       });
@@ -366,6 +367,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       <UpsertNoteDialog
         open={isEditing}
         onOpenChange={setIsEditing}
+        userId={note.userId}
         mode="edit"
         initialData={{ _id: note._id, type: "image", imageUrls: note.imageUrls, images: note.images }}
       />

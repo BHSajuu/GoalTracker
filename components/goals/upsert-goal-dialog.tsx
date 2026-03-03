@@ -181,7 +181,7 @@ export function UpsertGoalDialog({
         toast.success("Goal created successfully!");
       } else {
         if (!initialData?._id) return;
-        await updateGoal({ id: initialData._id, ...commonData });
+        await updateGoal({ id: initialData._id, userId, ...commonData });
         toast.success("Goal updated successfully!");
       }
       onOpenChange(false);

@@ -26,8 +26,11 @@ export default function NotesPage() {
   const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
 
   const goalId = selectedGoalId as Id<"goals">;
-  const activeNotes = useQuery(api.notes.getByGoal, goalId ? { goalId } : "skip");
-
+  const activeNotes = useQuery(
+    api.notes.getByGoal, 
+    goalId && userId ? { goalId, userId } : "skip"
+  );
+  
   if (goals === undefined) {
     return <NotesPageSkeleton />;
   }

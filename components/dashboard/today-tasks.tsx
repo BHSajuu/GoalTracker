@@ -34,7 +34,7 @@ export function TodayTasks({ userId }: TodayTasksProps) {
   const toggleComplete = useMutation(api.tasks.toggleComplete);
 
   const handleToggle = async (taskId: Id<"tasks">) => {
-    await toggleComplete({ id: taskId });
+    await toggleComplete({ id: taskId, userId });
   };
 
   const getGoalColor = (goalId: Id<"goals">) => {

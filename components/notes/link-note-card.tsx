@@ -22,7 +22,7 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
 
   const handleRemove = async () => {
     try {
-      await removeNote({ id: note._id });
+      await removeNote({ id: note._id, userId: note.userId });
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
@@ -165,6 +165,7 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
       <UpsertNoteDialog
         open={isEditing}
         onOpenChange={setIsEditing}
+        userId={note.userId}
         mode="edit"
         initialData={{
           _id: note._id,

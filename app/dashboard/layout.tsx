@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
-import { FocusTimerProvider } from "@/components/tasks/focus-timer"; // Import the Provider
+import { FocusTimerProvider } from "@/components/tasks/focus-timer";
 
 export default function DashboardLayout({
   children,

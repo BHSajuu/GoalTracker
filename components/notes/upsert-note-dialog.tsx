@@ -19,7 +19,7 @@ import { RichTextEditor } from "./rich-text-editor";
 interface UpsertNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  userId?: Id<"users">;
+  userId: Id<"users">;
   goalId?: Id<"goals">;
   mode: "create" | "edit";
   initialData?: {
@@ -329,7 +329,7 @@ export function UpsertNoteDialog({
         toast.success("Note added successfully");
       } else {
         if (!initialData?._id) return;
-        await updateNote({ id: initialData._id, ...payload });
+        await updateNote({ id: initialData._id, userId, ...payload });
         toast.success("Note updated");
       }
 

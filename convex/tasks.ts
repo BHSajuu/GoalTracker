@@ -12,6 +12,10 @@ export const create = mutation({
     estimatedTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const goal = await ctx.db.get(args.goalId);
+    if (!goal) throw new Error("Goal not found");
+    if (goal.userId !== args.userId) throw new Error("Unauthorized to add tasks to this goal");
+
     return await ctx.db.insert("tasks", {
       userId: args.userId,
       goalId: args.goalId,
@@ -41,9 +45,14 @@ export const getByUser = query({
 });
 
 export const getByGoal = query({
-  args: { goalId: v.id("goals") },
+  args: { 
+    goalId: v.id("goals"),
+    userId: v.id("users") 
+  },
   handler: async (ctx, args) => {
-    // Show ALL tasks (active + archived) for the Goal History view
+    const goal = await ctx.db.get(args.goalId);
+    if (!goal || goal.userId !== args.userId) return [];
+
     return await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.goalId))
@@ -54,30 +63,17 @@ export const getByGoal = query({
 export const getTodayTasks = query({
   args: {
     userId: v.id("users"),
-    startOfDay: v.optional(v.number()),
-    endOfDay: v.optional(v.number()),
+    startOfDay: v.number(), 
+    endOfDay: v.number(),
   },
   handler: async (ctx, args) => {
-    let start = args.startOfDay;
-    let end = args.endOfDay;
-
-    // Fallback to server time if client doesn't provide local time
-    if (!start || !end) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      start = today.getTime();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      end = tomorrow.getTime();
-    }
-
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_and_date", (q) =>
         q
           .eq("userId", args.userId)
-          .gte("dueDate", start!)
-          .lt("dueDate", end!)
+          .gte("dueDate", args.startOfDay)
+          .lt("dueDate", args.endOfDay)
       )
       .collect();
 
@@ -89,18 +85,10 @@ export const getUpcomingTasks = query({
   args: {
     userId: v.id("users"),
     days: v.number(),
-    startOfDay: v.optional(v.number())
+    startOfDay: v.number() 
   },
   handler: async (ctx, args) => {
-    let start = args.startOfDay;
-
-    if (!start) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      start = today.getTime();
-    }
-
-    const endDate = new Date(start);
+    const endDate = new Date(args.startOfDay);
     endDate.setDate(endDate.getDate() + args.days);
 
     const tasks = await ctx.db
@@ -108,7 +96,7 @@ export const getUpcomingTasks = query({
       .withIndex("by_user_and_date", (q) =>
         q
           .eq("userId", args.userId)
-          .gte("dueDate", start!)
+          .gte("dueDate", args.startOfDay)
           .lt("dueDate", endDate.getTime())
       )
       .collect();
@@ -120,6 +108,7 @@ export const getUpcomingTasks = query({
 export const update = mutation({
   args: {
     id: v.id("tasks"),
+    userId: v.id("users"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     completed: v.optional(v.boolean()),
@@ -128,12 +117,13 @@ export const update = mutation({
     estimatedTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, userId, ...updates } = args;
 
     // Fetch the task first to check its existing completedAt status
     const task = await ctx.db.get(id);
-    if (!task) return;
-
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== userId) throw new Error("Unauthorized");
+ 
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     ) as Partial<typeof updates> & { completedAt?: number };
@@ -148,10 +138,13 @@ export const update = mutation({
 });
 
 export const toggleComplete = mutation({
-  args: { id: v.id("tasks") },
+  args: { 
+    id: v.id("tasks"),
+    userId: v.id("users") },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) return;
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== args.userId) throw new Error("Unauthorized");
 
     const newCompleted = !task.completed;
 
@@ -174,9 +167,13 @@ export const toggleComplete = mutation({
       .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
       .collect();
 
-    const updatedTasks = allGoalTasks.map((t) =>
+     const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
+    
+    // Replace the old state of the toggled task with its new state for calculation
+    const updatedTasks = activeTasks.map((t) =>
       t._id === args.id ? { ...t, completed: newCompleted } : t
     );
+
 
     if (updatedTasks.length > 0) {
       const completedCount = updatedTasks.filter((t) => t.completed).length;
@@ -194,18 +191,70 @@ export const toggleComplete = mutation({
 
 // Soft Delete (Archive)
 export const archive = mutation({
-  args: { id: v.id("tasks") },
+  args: { 
+    id: v.id("tasks"),
+    userId: v.id("users")
+  },
   handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== args.userId) throw new Error("Unauthorized");
+
     await ctx.db.patch(args.id, { isArchived: true });
+
+    // Recalculate goal progress since an archived task no longer counts
+    const allGoalTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
+      .collect();
+
+    const activeTasks = allGoalTasks.filter((t) => !t.isArchived && t._id !== args.id);
+
+    const progress = activeTasks.length > 0 
+      ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
+      : 0;
+
+    await ctx.db.patch(task.goalId, { progress, updatedAt: Date.now() });
   },
 });
 
-
 // Hard Delete (Permanent)
 export const remove = mutation({
-  args: { id: v.id("tasks") },
+  args: { 
+    id: v.id("tasks"),
+    userId: v.id("users")
+  },
   handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== args.userId) throw new Error("Unauthorized");
+
+    // Clean up focus sessions
+    const focusSessions = await ctx.db
+      .query("focusSessions")
+      .withIndex("by_task", (q) => q.eq("taskId", args.id))
+      .collect();
+    
+    for (const session of focusSessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    const goalId = task.goalId;
     await ctx.db.delete(args.id);
+
+    // Recalculate goal progress
+    const allGoalTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_goal", (q) => q.eq("goalId", goalId))
+      .collect();
+
+    const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
+
+    const progress = activeTasks.length > 0 
+      ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
+      : 0;
+
+    await ctx.db.patch(goalId, { progress, updatedAt: Date.now() });
   },
 });
 
@@ -220,7 +269,10 @@ export const saveFocusSession = mutation({
     status: v.union(v.literal("completed"), v.literal("interrupted")),
   },
   handler: async (ctx, args) => {
-    // Log the individual session
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== args.userId) throw new Error("Unauthorized");
+
     await ctx.db.insert("focusSessions", {
       userId: args.userId,
       taskId: args.taskId,
@@ -230,14 +282,10 @@ export const saveFocusSession = mutation({
       status: args.status,
     });
 
-    // Aggregate this time into the task's 'actualTime'
-    const task = await ctx.db.get(args.taskId);
-    if (task) {
-      const currentActual = task.actualTime || 0;
-      await ctx.db.patch(args.taskId, {
-        actualTime: currentActual + args.duration,
-      });
-    }
+    const currentActual = task.actualTime || 0;
+    await ctx.db.patch(args.taskId, {
+      actualTime: currentActual + args.duration,
+    });
   },
 });
 
@@ -276,7 +324,7 @@ export const getEfficiencyStats = query({
 export const getStats = query({
   args: {
     userId: v.id("users"),
-    localTodayStart: v.optional(v.number())
+    localTodayStart: v.number() 
   },
   handler: async (ctx, args) => {
     const tasks = await ctx.db
@@ -284,13 +332,7 @@ export const getStats = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
-    let todayTime = args.localTodayStart;
-    if (!todayTime) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      todayTime = today.getTime();
-    }
-
+    const todayTime = args.localTodayStart;
     const weekAgoTime = todayTime - (7 * 24 * 60 * 60 * 1000);
 
     const completedTasksWithDates = tasks
