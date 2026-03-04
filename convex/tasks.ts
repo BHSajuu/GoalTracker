@@ -45,9 +45,9 @@ export const getByUser = query({
 });
 
 export const getByGoal = query({
-  args: { 
+  args: {
     goalId: v.id("goals"),
-    userId: v.id("users") 
+    userId: v.id("users")
   },
   handler: async (ctx, args) => {
     const goal = await ctx.db.get(args.goalId);
@@ -63,7 +63,7 @@ export const getByGoal = query({
 export const getTodayTasks = query({
   args: {
     userId: v.id("users"),
-    startOfDay: v.number(), 
+    startOfDay: v.number(),
     endOfDay: v.number(),
   },
   handler: async (ctx, args) => {
@@ -85,7 +85,7 @@ export const getUpcomingTasks = query({
   args: {
     userId: v.id("users"),
     days: v.number(),
-    startOfDay: v.number() 
+    startOfDay: v.number()
   },
   handler: async (ctx, args) => {
     const endDate = new Date(args.startOfDay);
@@ -123,7 +123,7 @@ export const update = mutation({
     const task = await ctx.db.get(id);
     if (!task) throw new Error("Task not found");
     if (task.userId !== userId) throw new Error("Unauthorized");
- 
+
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     ) as Partial<typeof updates> & { completedAt?: number };
@@ -138,9 +138,10 @@ export const update = mutation({
 });
 
 export const toggleComplete = mutation({
-  args: { 
+  args: {
     id: v.id("tasks"),
-    userId: v.id("users") },
+    userId: v.id("users")
+  },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (!task) throw new Error("Task not found");
@@ -167,8 +168,8 @@ export const toggleComplete = mutation({
       .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
       .collect();
 
-     const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
-    
+    const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
+
     // Replace the old state of the toggled task with its new state for calculation
     const updatedTasks = activeTasks.map((t) =>
       t._id === args.id ? { ...t, completed: newCompleted } : t
@@ -191,7 +192,7 @@ export const toggleComplete = mutation({
 
 // Soft Delete (Archive)
 export const archive = mutation({
-  args: { 
+  args: {
     id: v.id("tasks"),
     userId: v.id("users")
   },
@@ -210,7 +211,7 @@ export const archive = mutation({
 
     const activeTasks = allGoalTasks.filter((t) => !t.isArchived && t._id !== args.id);
 
-    const progress = activeTasks.length > 0 
+    const progress = activeTasks.length > 0
       ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
       : 0;
 
@@ -220,7 +221,7 @@ export const archive = mutation({
 
 // Hard Delete (Permanent)
 export const remove = mutation({
-  args: { 
+  args: {
     id: v.id("tasks"),
     userId: v.id("users")
   },
@@ -234,7 +235,7 @@ export const remove = mutation({
       .query("focusSessions")
       .withIndex("by_task", (q) => q.eq("taskId", args.id))
       .collect();
-    
+
     for (const session of focusSessions) {
       await ctx.db.delete(session._id);
     }
@@ -250,7 +251,7 @@ export const remove = mutation({
 
     const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
 
-    const progress = activeTasks.length > 0 
+    const progress = activeTasks.length > 0
       ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
       : 0;
 
@@ -324,7 +325,7 @@ export const getEfficiencyStats = query({
 export const getStats = query({
   args: {
     userId: v.id("users"),
-    localTodayStart: v.number() 
+    localTodayStart: v.number()
   },
   handler: async (ctx, args) => {
     const tasks = await ctx.db
@@ -396,5 +397,59 @@ export const getStats = query({
       currentStreak,
       activeDays: uniqueDays,
     };
+  },
+});
+
+// Advanced Multiplier Predictor with IQR Outlier Filtering
+export const getEstimationMultiplier = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    const recentCompletedTasks = tasks.filter(
+      (t) =>
+        t.completed === true &&
+        t.completedAt &&
+        t.completedAt >= oneWeekAgo &&
+        t.estimatedTime && t.estimatedTime > 0 &&
+        t.actualTime && t.actualTime > 0
+    );
+
+    if (recentCompletedTasks.length === 0) return 1.0;
+
+    // Calculate individual multipliers and sort them ascending
+    const individualMultipliers = recentCompletedTasks.map((t) => {
+      return t.actualTime! / t.estimatedTime!;
+    }).sort((a, b) => a - b);
+
+    let validMultipliers = individualMultipliers;
+
+    // Remove Outliers using Interquartile Range (IQR) if we have enough data (min 4 points)
+    if (individualMultipliers.length >= 4) {
+      const q1Index = Math.floor(individualMultipliers.length * 0.25);
+      const q3Index = Math.floor(individualMultipliers.length * 0.75);
+      const q1 = individualMultipliers[q1Index];
+      const q3 = individualMultipliers[q3Index];
+      const iqr = q3 - q1;
+
+      // We only care about massive upper outliers (e.g., taking 20x longer on a 1 min task)
+      const upperBound = q3 + 1.5 * iqr;
+
+      validMultipliers = individualMultipliers.filter((m) => m <= upperBound);
+    }
+
+    // Calculate the mean of the clean data
+    const sumOfMultipliers = validMultipliers.reduce((sum, m) => sum + m, 0);
+    const meanMultiplier = sumOfMultipliers / validMultipliers.length;
+
+    // Cap between 0.5 (2x as fast) and 3.0 (3x as slow)
+    const finalMultiplier = Math.min(Math.max(Number(meanMultiplier.toFixed(2)), 0.5), 3.0);
+
+    return finalMultiplier;
   },
 });

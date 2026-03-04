@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, CheckSquare, Target, Clock,
-  CalendarDays, AlignLeft, AlertCircle, LayoutList, Wand2, Bot
+  CalendarDays, AlignLeft, AlertCircle, LayoutList, Wand2, Bot,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -67,16 +68,18 @@ export function UpsertTaskDialog({
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
-
+  const [isSuggestionApplied, setIsSuggestionApplied] = useState(false);
   //  Data & Mutations 
   const goals = useQuery(api.goals.getByUser, { userId });
+  const estimationMultiplier = useQuery(api.tasks.getEstimationMultiplier, { userId });
   const createTask = useMutation(api.tasks.create);
   const updateTask = useMutation(api.tasks.update);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
-  const suggestDescription = useAction(api.ai.suggestDescription); 
+  const suggestDescription = useAction(api.ai.suggestDescription);
 
   useEffect(() => {
     if (open) {
+      setIsSuggestionApplied(false);
       if (mode === "edit" && initialData) {
         setTitle(initialData.title);
         setDescription(initialData.description || "");
@@ -107,7 +110,7 @@ export function UpsertTaskDialog({
     }
   }, [open, mode, initialData, preselectedGoalId]);
 
-const handleSuggestDescription = async () => {
+  const handleSuggestDescription = async () => {
     if (!title.trim()) {
       toast.error("Please enter a Task Title first.");
       return;
@@ -117,11 +120,11 @@ const handleSuggestDescription = async () => {
 
     setIsSuggestingDesc(true);
     try {
-      const suggestion = await suggestDescription({ 
-        title: title.trim(), 
+      const suggestion = await suggestDescription({
+        title: title.trim(),
         type: "task",
         goalTitle: selectedGoal?.title,
-        goalDescription: selectedGoal?.description 
+        goalDescription: selectedGoal?.description
       });
       setDescription(suggestion);
       toast.success("Task description auto-filled!");
@@ -163,7 +166,7 @@ const handleSuggestDescription = async () => {
         toast.success("Task created successfully!");
       } else {
         if (!initialData?._id) return;
-         await updateTask({
+        await updateTask({
           id: initialData._id,
           userId,
           ...commonData,
@@ -181,9 +184,21 @@ const handleSuggestDescription = async () => {
 
   const activeGoals = goals?.filter((g) => g.status === "active") || [];
 
+  const currentTotalMinutes = (parseInt(estHours) || 0) * 60 + (parseInt(estMinutes) || 0);
+  const showTimeSuggestion = estimationMultiplier !== undefined && estimationMultiplier > 1.1 && currentTotalMinutes > 0 && !isSuggestionApplied;
+  const suggestedMinutes = showTimeSuggestion ? Math.round(currentTotalMinutes * estimationMultiplier) : 0;
+  const suggestedH = Math.floor(suggestedMinutes / 60);
+  const suggestedM = suggestedMinutes % 60;
+
+  const applySuggestedTime = () => {
+    setEstHours(suggestedH > 0 ? suggestedH.toString() : "");
+    setEstMinutes(suggestedM > 0 ? suggestedM.toString() : "");
+    setIsSuggestionApplied(true);
+    toast.success("AI suggested time applied!");
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden border-border/40 bg-background/80 backdrop-blur-xl shadow-2xl">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 max-h-[95vh] overflow-y-auto border-border/40 bg-background/80 backdrop-blur-xl shadow-2xl">
 
         {/* Header Section */}
         <div className="p-6 pb-4 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
@@ -326,15 +341,17 @@ const handleSuggestDescription = async () => {
               <Label className="flex items-center gap-2 text-foreground/90">
                 <Clock className="w-4 h-4 text-muted-foreground" /> Estimated Duration
               </Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 relative">
                 <div className="relative">
                   <Input
                     type="number"
                     min="0"
                     placeholder="0"
                     value={estHours}
-                    onChange={(e) => setEstHours(e.target.value)}
-                    className="bg-secondary/30 border-white/10 pr-12"
+                    onChange={(e) => {
+                      setEstHours(e.target.value);
+                      setIsSuggestionApplied(false);
+                    }} className="bg-secondary/30 border-white/10 pr-12"
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
                     hours
@@ -347,14 +364,63 @@ const handleSuggestDescription = async () => {
                     max="59"
                     placeholder="0"
                     value={estMinutes}
-                    onChange={(e) => setEstMinutes(e.target.value)}
-                    className="bg-secondary/30 border-white/10 pr-12"
+                    onChange={(e) => {
+                      setEstMinutes(e.target.value);
+                      setIsSuggestionApplied(false);
+                    }} className="bg-secondary/30 border-white/10 pr-12"
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
                     mins
                   </span>
                 </div>
               </div>
+              {/* AI Time Suggestion Banner */}
+            <AnimatePresence>
+                {showTimeSuggestion && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    className="mt-3 overflow-hidden"
+                  >
+                    <div className="relative group flex items-center gap-3 p-3 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.1)] overflow-hidden">
+                      
+                      {/* Animated shimmer background */}
+                      <motion.div
+                        animate={{ x: ["-100%", "200%"] }}
+                        transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 z-0"
+                      />
+                      
+                      {/* Pulsing Icon */}
+                      <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.3)] shrink-0">
+                        <motion.div 
+                          animate={{ scale: [1, 1.2, 1] }} 
+                          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                        >
+                          <Sparkles className="w-4 h-4 text-indigo-400" />
+                        </motion.div>
+                      </div>
+                      
+                      {/* Text & Badge */}
+                      <div className="relative z-10 flex-1 text-xs text-indigo-200/90 leading-relaxed">
+                        Historical bias detected (<span className="font-bold text-indigo-300">{estimationMultiplier}x</span>). 
+                        AI suggests <span className="font-bold text-white bg-indigo-500/30 px-1.5 py-0.5 rounded-md border border-indigo-500/30 ml-1 shadow-inner whitespace-nowrap">{suggestedH > 0 ? `${suggestedH}h ` : ""}{suggestedM > 0 ? `${suggestedM}m` : ""}</span>
+                      </div>
+                      
+                      {/* Premium Button */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={applySuggestedTime}
+                        className="relative z-10 h-8 text-[11px] px-3 bg-indigo-500 hover:bg-indigo-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.4)] border border-indigo-400/50 rounded-lg transition-all hover:scale-105"
+                      >
+                        Apply Fix
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="space-y-2">
