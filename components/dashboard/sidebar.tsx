@@ -11,6 +11,7 @@ import {
   BarChart3,
   LogOut,
   StickyNote,
+  User
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import Image from "next/image";
+import { ProfileDialog } from "./profile-dialog";
 
 // Navigation Items
 const navItems = [
@@ -36,6 +38,7 @@ export function DashboardSidebar() {
   const pathname = usePathname();
   const { logout, userEmail } = useAuth();
   const [open, setOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Reusable Nav Content to avoid duplication
   const NavContent = () => (
@@ -85,7 +88,7 @@ export function DashboardSidebar() {
               <div className=" flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 hover:bg-gray-800 text-primary font-bold text-xs  transition-all">
                 {userEmail?.charAt(0).toUpperCase()}
               </div>
-              <span className="hidden md:inline text-sm font-medium text-foreground">
+              <span className="hidden md:inline text-sm font-medium text-foreground truncate max-w-[120px]">
                 {userEmail}
               </span>
             </Button>
@@ -96,19 +99,27 @@ export function DashboardSidebar() {
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive gap-2 cursor-pointer">
+            
+            {/* Smart Profile Trigger Button */}
+            <DropdownMenuItem onClick={() => setIsProfileOpen(true)} className="gap-2 cursor-pointer text-blue-400 focus:text-blue-300">
+              <User className="w-4 h-4" /> Smart Profile
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive gap-2 cursor-pointer mt-1">
               <LogOut className="w-4 h-4" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Render the Profile Dialog */}
+      <ProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
     </div>
   );
 
   return (
     <>
-      {/* Desktop Sidebar (Visible on lg and up) */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col glass border-r border-border/50">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col glass border-r border-border/50 z-40">
         <NavContent />
       </aside>
 

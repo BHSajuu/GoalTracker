@@ -10,17 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, LogOut, Zap, LayoutDashboard, Target, CheckSquare, StickyNote, BarChart3 } from "lucide-react";
+import { Menu, LogOut, LayoutDashboard, Target, CheckSquare, StickyNote, BarChart3, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import Image from "next/image";
+import { ProfileDialog } from "./profile-dialog";
 
 export function DashboardHeader() {
   const { logout, userEmail } = useAuth();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const navItems = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -103,12 +105,16 @@ export function DashboardHeader() {
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>
             <DropdownMenuSeparator />
+             <DropdownMenuItem onClick={() => setIsProfileOpen(true)} className="gap-2 cursor-pointer text-blue-400 focus:text-blue-300">
+              <User className="w-4 h-4" /> Smart Profile
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={logout} className="text-destructive gap-2 cursor-pointer">
               <LogOut className="w-4 h-4" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+       <ProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
     </header>
   );
 }

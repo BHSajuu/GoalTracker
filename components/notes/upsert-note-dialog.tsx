@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -65,6 +65,7 @@ export function UpsertNoteDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Existing Images Tracking States
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -139,6 +140,7 @@ export function UpsertNoteDialog({
     setExistingImages([]);
     setDeletedLegacyImage(false);
     setUploadProgress({ current: 0, total: 0 });
+    setIsDragging(false);
     setActiveTab("text");
   };
 
@@ -150,14 +152,15 @@ export function UpsertNoteDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onOpenChange]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const processFiles = useCallback((files: File[]) => {
     if (files.length === 0) return;
 
     const validFiles: File[] = [];
 
     files.forEach(file => {
-      if (file.size > MAX_FILE_SIZE) {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`"${file.name}" is not an image file.`);
+      } else if (file.size > MAX_FILE_SIZE) {
         toast.error(`Image "${file.name}" is too large. Maximum size is 5MB.`);
       } else {
         validFiles.push(file);
@@ -174,6 +177,35 @@ export function UpsertNoteDialog({
     setPreviewUrls((prev) => [...prev, ...newPreviews]);
 
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    processFiles(files);
+  };
+
+  // Drag and Drop Handlers
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      processFiles(files);
+    }
   };
 
   const removeSelectedFile = (index: number) => {
@@ -690,6 +722,9 @@ export function UpsertNoteDialog({
                           exit={{ opacity: 0, y: -5 }}
                           transition={{ duration: 0.2 }}
                           className="space-y-6"
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
                         >
                           {/* Vision Analysis Banner  */}
                           {selectedFiles.length > 0 && !isAnalyzing && (
@@ -770,14 +805,27 @@ export function UpsertNoteDialog({
 
                               <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="group border-2 border-dashed border-white/10 rounded-2xl h-38 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all bg-secondary/5"
+                                className={cn(
+                                  "group border-2 border-dashed rounded-2xl h-38 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all",
+                                  isDragging
+                                    ? "bg-primary/10 border-primary scale-[1.02] shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+                                    : "bg-secondary/5 border-white/10 hover:bg-white/5 hover:border-primary/30"
+                                )}
                               >
-                                <div className="p-4 bg-background rounded-full group-hover:scale-110 transition-transform border border-white/5 shadow-sm">
-                                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                                <div className={cn(
+                                  "p-4 bg-background rounded-full transition-transform border border-white/5 shadow-sm",
+                                  isDragging ? "scale-110 bg-primary/20 border-primary/50 text-primary" : "group-hover:scale-110 text-muted-foreground group-hover:text-primary"
+                                )}>
+                                  <Upload className="w-6 h-6 transition-colors" />
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Click to upload</p>
-                                  <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, WEBP</p>
+                                  <p className={cn(
+                                    "text-sm font-medium transition-colors",
+                                    isDragging ? "text-primary font-bold" : "text-foreground group-hover:text-primary"
+                                  )}>
+                                    {isDragging ? "Drop images here!" : "Click or drag images to upload"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, WEBP (Max 5MB)</p>
                                 </div>
                               </div>
                             </>

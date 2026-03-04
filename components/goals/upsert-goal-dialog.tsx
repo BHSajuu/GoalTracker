@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Target, Sparkles, Bot, CheckCircle2,
-  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, ImageIcon, RefreshCw, Wand2, AlignLeft
+  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, ImageIcon, RefreshCw, Wand2, AlignLeft, CalendarClock
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -85,6 +85,10 @@ export function UpsertGoalDialog({
   const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
 
+  // New Timeframe Detection States
+  const [needsTimeframe, setNeedsTimeframe] = useState(false);
+  const [timeframe, setTimeframe] = useState("");
+
   //  Mutations & Actions 
   const createGoal = useMutation(api.goals.create);
   const updateGoal = useMutation(api.goals.update);
@@ -108,6 +112,8 @@ export function UpsertGoalDialog({
         setGeneratedPlan(null);
         setAiPrompt("");
         setAiMode("fast");
+        setNeedsTimeframe(false);
+        setTimeframe("");
         setActiveTab("ai");
       }
     }
@@ -120,6 +126,11 @@ export function UpsertGoalDialog({
     setTargetDate("");
     setColor(colorOptions[0]);
     setImageUrl("");
+  };
+
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setAiPrompt(e.target.value);
+    if (needsTimeframe) setNeedsTimeframe(false); // Reset if they edit prompt
   };
 
   const handleGenerateImage = async () => {
@@ -194,11 +205,31 @@ export function UpsertGoalDialog({
 
   const handleGeneratePlan = async () => {
     if (!aiPrompt.trim()) return;
+
+    // Detect if user mentioned any time-related words
+    const timeKeywords = /\b(day|days|week|weeks|month|months|year|years|date|by|tomorrow|target|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i;
+
+    // If no timeframe detected and we haven't asked them yet, pause and ask.
+    if (!timeKeywords.test(aiPrompt) && !needsTimeframe) {
+      setNeedsTimeframe(true);
+      return;
+    }
+
     setIsGenerating(true);
     setGeneratedPlan(null);
 
+    // Append timeframe instructions based on user's choice
+    let finalPrompt = aiPrompt;
+    if (needsTimeframe) {
+      if (timeframe.trim()) {
+        finalPrompt += `\nTarget Timeframe: ${timeframe.trim()}`;
+      } else {
+        finalPrompt += `\nTarget Timeframe: UNKNOWN. You MUST dynamically pick a realistic target date and timeframe based on the goal's complexity.`;
+      }
+    }
+
     try {
-      const plan = await generatePlan({ prompt: aiPrompt, mode: aiMode });
+      const plan = await generatePlan({ prompt: finalPrompt, mode: aiMode });
       setGeneratedPlan(plan as AiPlan);
       setTitle(plan.title);
       setDescription(plan.description);
@@ -292,27 +323,28 @@ export function UpsertGoalDialog({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2"><AlignLeft className="w-4 h-4 text-muted-foreground" /> Description</Label>
-        
+
         {/* Animated Auto-Fill Button */}
         <button
+          type="button"
           onClick={handleSuggestDescription}
           disabled={isSuggestingDesc || !title.trim()}
           className={cn(
             "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
-            isSuggestingDesc 
-              ? "bg-blue-600/20 text-blue-400 border border-blue-500/30" 
+            isSuggestingDesc
+              ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
               : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] border border-transparent hover:border-blue-500/20"
           )}
         >
           {/* Button Shine Effect */}
           {!isSuggestingDesc && (
-             <motion.div 
-               animate={{ x: ["-100%", "200%"] }} 
-               transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
-               className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0" 
-             />
+            <motion.div
+              animate={{ x: ["-100%", "200%"] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
+              className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"
+            />
           )}
-          
+
           <div className="flex items-center gap-1.5 relative z-10">
             {isSuggestingDesc ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -336,7 +368,7 @@ export function UpsertGoalDialog({
             isSuggestingDesc && "opacity-30 blur-[2px]"
           )}
         />
-        
+
         {/* AI Processing Overlay */}
         <AnimatePresence>
           {isSuggestingDesc && (
@@ -352,17 +384,17 @@ export function UpsertGoalDialog({
                 transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
                 className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_12px_rgba(59,130,246,1)] z-20"
               />
-              
+
               {/* Pulsing Icon */}
               <div className="flex flex-col items-center gap-2">
-                <motion.div 
-                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }} 
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
                   transition={{ repeat: Infinity, duration: 1 }}
                   className="p-2 bg-blue-500/20 rounded-full border border-blue-500/40"
                 >
                   <Bot className="w-5 h-5 text-blue-400" />
                 </motion.div>
-                <motion.span 
+                <motion.span
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
                   className="text-[10px] font-bold tracking-widest text-blue-400 uppercase bg-background/80 px-2 py-0.5 rounded-full"
@@ -561,13 +593,42 @@ export function UpsertGoalDialog({
                               Describe your ambition. Our AI will decompose it into a structured, actionable roadmap with timelines and priorities.
                             </p>
                             <Textarea
-                              placeholder="e.g. I want to learn Next.js and build a portfolio project in 2 weeks..."
+                              placeholder="e.g. I want to learn Next.js and build a portfolio project..."
                               value={aiPrompt}
-                              onChange={(e) => setAiPrompt(e.target.value)}
-                              className="min-h-[100px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50 mb-4"
+                              onChange={handlePromptChange}
+                              className="min-h-[100px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50 mb-2"
                             />
 
-                            <div className="grid grid-cols-2 gap-3 mt-4">
+                            {/* Animated Timeframe Request Box */}
+                            <AnimatePresence>
+                              {needsTimeframe && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0, y: -10 }}
+                                  animate={{ opacity: 1, height: "auto", y: 0 }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="overflow-hidden mb-4"
+                                >
+                                  <div className="p-3 mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-amber-500 font-medium text-sm">
+                                      <CalendarClock className="w-4 h-4" />
+                                      No timeframe detected!
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      When do you want to achieve this? You can specify a timeframe (e.g., "30 days", "by June"), or leave it blank to let the AI determine a realistic schedule.
+                                    </p>
+                                    <Input
+                                      placeholder="e.g., 30 days (Optional)"
+                                      value={timeframe}
+                                      onChange={(e) => setTimeframe(e.target.value)}
+                                      className="bg-background/50 border-amber-500/20 text-sm h-9"
+                                      autoFocus
+                                    />
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+
+                            <div className="grid grid-cols-2 gap-3 mt-2">
                               <div
                                 onClick={() => setAiMode("fast")}
                                 className={cn(
@@ -682,7 +743,7 @@ export function UpsertGoalDialog({
                   <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="bg-secondary/30" />
                 </div>
               </div>
-              
+
               {renderDescriptionSection()}
 
               <div className="space-y-3">
@@ -716,7 +777,7 @@ export function UpsertGoalDialog({
                 disabled={isGenerating || !aiPrompt.trim()}
                 className={cn("text-white shadow-lg transition-all", aiMode === "fast" ? "bg-teal-600" : "bg-indigo-600")}
               >
-                {isGenerating ? "Building..." : "Generate Plan"}
+                {isGenerating ? "Building..." : (needsTimeframe ? "Confirm & Generate" : "Generate Plan")}
               </Button>
             ) : (
               <Button

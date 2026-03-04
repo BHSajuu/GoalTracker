@@ -22,13 +22,14 @@ import {
   Clock,
   Pencil,
   Archive,
-  Loader2
+  Loader2,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpsertTaskDialog } from "./upsert-task-dialog";
 import Image from "next/image";
-import { useFocusTimer } from "./focus-timer"; 
+import { useFocusTimer } from "./focus-timer";
 
 interface TaskItemProps {
   task: Doc<"tasks">;
@@ -58,6 +59,7 @@ export function TaskItem({
   const updateGoalProgress = useMutation(api.goals.updateProgress);
   const removeTask = useMutation(api.tasks.remove);
   const archiveTask = useMutation(api.tasks.archive);
+  const unarchiveTask = useMutation(api.tasks.unarchive);
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
@@ -69,10 +71,11 @@ export function TaskItem({
     } finally {
       setIsToggling(false);
     }
-  }; 
+  };
 
- const handleDelete = async () => {
-    if (isHardDelete) {
+  const handleDelete = async () => {
+    // If it's a hard delete view OR if it's already archived, force permanent delete
+    if (isHardDelete || task.isArchived) {
       if (confirm("This will permanently delete the task. Continue?")) {
         await removeTask({ id: task._id, userId: task.userId });
         await updateGoalProgress({ id: goalId, userId: task.userId });
@@ -81,16 +84,23 @@ export function TaskItem({
     } else {
       await archiveTask({ id: task._id, userId: task.userId });
       await updateGoalProgress({ id: goalId, userId: task.userId });
-      toast.success("Task removed from list");
+      toast.success("Task removed successfully");
     }
   };
 
- const handlePriorityChange = async (
+  const handleRestore = async () => {
+    await unarchiveTask({ id: task._id, userId: task.userId });
+    await updateGoalProgress({ id: goalId, userId: task.userId });
+    toast.success("Task restored to active list");
+  };
+
+  const handlePriorityChange = async (
     priority: "low" | "medium" | "high"
   ) => {
     await updateTask({ id: task._id, userId: task.userId, priority });
     toast.success("Priority updated");
   };
+
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const today = new Date();
@@ -179,7 +189,7 @@ export function TaskItem({
                     alt="Focus"
                     width={30}
                     height={20}
-                    onClick={() => startFocusSession(task)} 
+                    onClick={() => startFocusSession(task)}
                     className="w-7 md:w-8 cursor-pointer"
                   />
                 )}
@@ -195,7 +205,7 @@ export function TaskItem({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {!task.isArchived && (
+                    {!task.isArchived ? (
                       <>
                         <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
                           <Pencil className="w-4 h-4" /> Edit Task
@@ -212,13 +222,20 @@ export function TaskItem({
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                       </>
+                    ) : (
+                      <>
+                        <DropdownMenuItem onClick={handleRestore} className="gap-2 text-primary focus:text-primary">
+                          <RotateCcw className="w-4 h-4" /> Restore Active
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
                     )}
 
                     <DropdownMenuItem onClick={handleDelete} className="gap-2 text-destructive focus:text-destructive">
-                      {isHardDelete ? (
+                      {isHardDelete || task.isArchived ? (
                         <><Trash2 className="w-4 h-4" /> Delete Permanently</>
                       ) : (
-                        <><Archive className="w-4 h-4" /> Delete</>
+                        <><Archive className="w-4 h-4" /> Delete Task</>
                       )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>

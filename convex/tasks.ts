@@ -219,6 +219,36 @@ export const archive = mutation({
   },
 });
 
+// Restore from Archive
+export const unarchive = mutation({
+  args: {
+    id: v.id("tasks"),
+    userId: v.id("users")
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    if (task.userId !== args.userId) throw new Error("Unauthorized");
+
+    // Patch the task to make it active again
+    await ctx.db.patch(args.id, { isArchived: false });
+
+    // Recalculate goal progress since it now counts again
+    const allGoalTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
+      .collect();
+
+    const activeTasks = allGoalTasks.filter((t) => !t.isArchived); // Unarchived task is already included
+
+    const progress = activeTasks.length > 0
+      ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
+      : 0;
+
+    await ctx.db.patch(task.goalId, { progress, updatedAt: Date.now() });
+  },
+});
+
 // Hard Delete (Permanent)
 export const remove = mutation({
   args: {

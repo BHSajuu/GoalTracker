@@ -19,7 +19,7 @@ import { TermsDialog } from "@/components/legal/terms-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-//  Utility for Scroll Animations 
+// Utility for Scroll Animations 
 function useScrollAnimation() {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -41,7 +41,6 @@ function useScrollAnimation() {
 
   return { ref, isVisible };
 }
-
 
 const HeroVisual = () => (
   <div className="relative w-full max-w-150 aspect-4/3 mx-auto perspective-1000">
@@ -134,13 +133,13 @@ const FeatureCard = ({ imageSrc, title, desc, delay }: { imageSrc: string, title
     >
       <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
       <div className="relative z-10">
-        <Image 
-            src={imageSrc} 
-            alt={title} 
-            width={40} 
-            height={40} 
-            className="m-3 object-contain"
-          />
+        <Image
+          src={imageSrc}
+          alt={title}
+          width={40}
+          height={40}
+          className="m-3 object-contain"
+        />
         <h3 className="text-xl font-bold text-foreground mb-2">{title}</h3>
         <p className="text-muted-foreground leading-relaxed">{desc}</p>
       </div>
@@ -148,40 +147,50 @@ const FeatureCard = ({ imageSrc, title, desc, delay }: { imageSrc: string, title
   );
 };
 
-
-
 function VisitorCounter() {
   const trackVisitor = useMutation(api.visitors.trackVisitor);
   const visitorCount = useQuery(api.visitors.getVisitorCount);
+  const { userId } = useAuth(); // Tap into auth to prevent tracking logged-in users
   const hasTracked = useRef(false);
 
   useEffect(() => {
-    if (hasTracked.current) return;
+    // 1. Abort if already tracked in this session OR if user is logged in
+    if (hasTracked.current || userId) return;
+
+    // 2. Abort if they've visited before (checked via persistent localStorage)
+    const hasVisited = localStorage.getItem("zielio_has_visited");
+    if (hasVisited) {
+      hasTracked.current = true;
+      return;
+    }
+
     hasTracked.current = true;
 
     const track = async () => {
       try {
-        // 1. Call our internal API
         const response = await fetch("/api/geo");
         if (!response.ok) return; // Silent fail if API down
-        
+
         const data = await response.json();
 
-        // 2. STRICT MODE: Only track if we have a valid-looking IP
         if (data.ip) {
-           await trackVisitor({
+          await trackVisitor({
             ip: data.ip,
             city: data.city || "Unknown",
             country: data.country || "Unknown",
           });
+
+          // 3. Mark as visited in the browser so we don't fire again
+          localStorage.setItem("zielio_has_visited", "true");
         }
       } catch (error) {
         console.error("Tracking error:", error);
+        hasTracked.current = false; // allow retry if failed
       }
     };
 
     track();
-  }, [trackVisitor]);
+  }, [trackVisitor, userId]);
 
   // Loading State
   if (visitorCount === undefined) {
@@ -198,14 +207,13 @@ function VisitorCounter() {
       <div className="flex -space-x-3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center overflow-hidden">
-             <div className={`w-full h-full bg-linear-to-br ${i===1?'from-blue-500':i===2?'from-purple-500':'from-green-500'} to-transparent opacity-80`} />
+            <div className={`w-full h-full bg-linear-to-br ${i === 1 ? 'from-blue-500' : i === 2 ? 'from-purple-500' : 'from-green-500'} to-transparent opacity-80`} />
           </div>
         ))}
       </div>
       <div className="text-sm">
         <p className="font-bold text-foreground flex items-center gap-2">
-          {/* Default to 1 so the UI doesn't look broken initially */}
-          <span className="text-primary">{(visitorCount || 1).toLocaleString()}</span> Students Joined
+          <span className="text-primary">{(visitorCount).toLocaleString()}</span> Active Users
         </p>
         <p className="text-muted-foreground text-xs">Live tracking active</p>
       </div>
@@ -267,7 +275,7 @@ export default function HomePage() {
             <div className="flex-1 text-center lg:text-left z-10">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-sm font-medium mb-6 animate-fade-in">
                 <Sparkles className="w-3 h-3" />
-                <span>The Future of Student Productivity</span>
+                <span>The Future of Personal Productivity</span>
               </div>
 
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-6 leading-[1.1]">
@@ -278,34 +286,18 @@ export default function HomePage() {
               </h1>
 
               <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Zielio isn't just a todo list. It's a complete operating system for ambitious students to track goals, manage projects, and maintain laser focus.
+                Zielio isn't just a todo list. It's a complete operating system for ambitious people to track goals, manage projects, and maintain laser focus.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                <Link href="/login">
-                  <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(0,212,255,0.3)] hover:shadow-[0_0_30px_rgba(0,212,255,0.5)] transition-all duration-300">
-                    Get Started Free <ArrowRight className="ml-2 w-4 h-4" />
-                  </Button>
-                </Link>
-                <Link href="#features">
-                  <Button size="lg" variant="secondary" className="h-12 px-8 text-base">
-                    How it Works
-                  </Button>
-                </Link>
-              </div>
 
-              {/* Mini Social Proof */}
-              {/* <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 text-sm text-muted-foreground">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center text-[10px] font-bold">
-                      {String.fromCharCode(64 + i)}
-                    </div>
-                  ))}
-                </div>
-                <p>Join 1,000+ Students</p>
-              </div> */}
-              <VisitorCounter/>
+              <Link href="/login">
+                <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(0,212,255,0.3)] hover:shadow-[0_0_30px_rgba(0,212,255,0.5)] transition-all duration-300">
+                  Get Started Free <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </Link>
+
+
+              <VisitorCounter />
             </div>
 
             {/* Right: 3D Visual */}
@@ -315,7 +307,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
 
       {/* Features Grid */}
       <section id="features" className="max-w-7xl mx-auto md:py-24 py-16 relative">
@@ -330,13 +321,13 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <FeatureCard
+            <FeatureCard
               imageSrc="/ai.png"
               title="AI Powered Goal Creation"
               desc="Transform vague ideas into concrete roadmaps. Our AI breaks down your ambitions into actionable tasks instantly."
               delay={0}
             />
-            
+
             <FeatureCard
               imageSrc="/ai3.png"
               title="AI Powered Overdue Scheduler"
@@ -357,7 +348,7 @@ export default function HomePage() {
               desc="Don't just guess. See your efficiency trends, completion rates, and daily streaks in real-time."
               delay={300}
             />
-            
+
             <FeatureCard
               imageSrc="/note.png"
               title="Rich Notes"
@@ -365,7 +356,7 @@ export default function HomePage() {
               delay={400}
             />
 
-             <FeatureCard
+            <FeatureCard
               imageSrc="/dev.png"
               title="Dev-Ready Workflow"
               desc="Designed by developers for developers. Track your coding projects, bug fixes, and learning paths."
@@ -385,7 +376,7 @@ export default function HomePage() {
               Ready to upgrade your workflow?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
-              Join the community of students who are taking control of their future. No credit card required.
+              Join the community of people who are taking control of their future. No credit card required.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Link href="/login">

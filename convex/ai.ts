@@ -54,8 +54,13 @@ export const generateGoalPlan = action({
           Today's date is ${today}.
           
           OBJECTIVE:
-          The user will give you a goal (e.g., "Learn React in 30 days").
+          The user will give you a goal.
           You must generate a concrete, step-by-step execution plan in STRICT JSON format.
+
+          TIMELINE & TARGET DATE RULES (CRITICAL):
+          1. If the user specifies a timeframe (e.g., "in 14 days", "30 days", "by next week"), generate exactly that many tasks up to that target date.
+          2. If the user DOES NOT specify a timeframe, you MUST dynamically analyze the goal's complexity and assign a realistic timeframe (e.g., 7 days for a simple task, 45 days for a complex project).
+          3. You MUST generate 1 task per day from offset 0 up to your calculated target date.
 
           CRITICAL OUTPUT RULES:
           1. Output ONLY valid JSON. 
@@ -87,11 +92,6 @@ export const generateGoalPlan = action({
           - Semester-Exams, Competitive-Exams
           - Work & Professional Projects
           - Finance & Investing, Creative, Other
-
-          PLANNING LOGIC:
-          1. **Coverage:** You MUST generate a task for EVERY day from offset 0 up to the target date.
-          2. **Sequence:** Ensure tasks follow a logical progression (e.g., Basics -> Practice -> Project).
-          3. **Realism:** If the user says "30 days", generate exactly 30 distinct tasks with offsets 0 to 29.
           `,
           },
           {
@@ -368,7 +368,7 @@ export const generateAnalyticsInsights = action({
         messages: [
           {
             role: "system",
-         content: `You are an elite productivity coach and data scientist. 
+            content: `You are an elite productivity coach and data scientist. 
                   The user can already see their charts and raw numbers. DO NOT repeat stats.
 
                   CRITICAL RULE: NO PARAGRAPHS ALLOWED. You must explain everything EXCLUSIVELY in short, highly analytical bullet points. 
@@ -393,10 +393,10 @@ export const generateAnalyticsInsights = action({
           }
         ],
         max_tokens: 800,
-        temperature: 0.4, 
+        temperature: 0.4,
         top_p: 0.9,
       });
-      
+
       return response.choices[0]?.message?.content || "Failed to generate AI insights.";
     } catch (error) {
       console.error("NVIDIA AI Analytics Error:", error);

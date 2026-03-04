@@ -102,7 +102,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                   className={cn(
                     "font-semibold truncate text-lg transition-colors",
                     hasImage 
-                      ? "text-white group-hover:text-primary-foreground/90" 
+                      ? "text-white group-hover:text-gray-500" 
                       : "text-foreground group-hover:text-primary"
                   )}
                 >
