@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -9,6 +9,7 @@ import { TaskItem } from "@/components/tasks/task-item";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { PlanDayDialog } from "@/components/tasks/plan-day-dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { TasksPageSkeleton } from "@/components/tasks/skeletons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -22,22 +23,39 @@ import {
   Plus,
   Search,
   CheckSquare,
-  Filter
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
+
+const TASKS_PER_PAGE = 10;
 
 export default function TasksPage() {
   const { userId } = useAuth();
   const searchParams = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter States
+  const [searchInput, setSearchInput] = useState(""); 
+  const [searchQuery, setSearchQuery] = useState(""); 
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [goalFilter, setGoalFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("all");
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const tasks = useQuery(api.tasks.getByUser, userId ? { userId } : "skip");
-  const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
+  // 1. DEBOUNCE SEARCH INPUT (Prevents server spam while typing)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   useEffect(() => {
     if (searchParams.get("new") === "true") {
@@ -45,62 +63,58 @@ export default function TasksPage() {
     }
   }, [searchParams]);
 
+  // Reset pagination to page 1 whenever any filter or tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, priorityFilter, goalFilter, activeTab]);
+
+  const goals = useQuery(api.goals.getByUser, userId ? { userId } : "skip");
+
   const getGoalColor = (goalId: string) => goals?.find((g) => g._id === goalId)?.color || "#00d4ff";
   const getGoalTitle = (goalId: string) => goals?.find((g) => g._id === goalId)?.title || "Unknown Goal";
 
-  // Filtering Logic
-  // 1. First, create a "Base" list that applies only the global filters (Search, Priority, Goal)
-  // This list will be used to calculate the counts for the tabs
-  const baseFilteredTasks = tasks?.filter((task) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-    const matchesGoal = goalFilter === "all" || task.goalId === goalFilter;
-    return matchesSearch && matchesPriority && matchesGoal;
-  }) || [];
-
-  // 2. Calculate dynamic counts based on the global filters
-  const allCount = baseFilteredTasks.length;
-  const pendingCount = baseFilteredTasks.filter((t) => !t.completed).length;
-  const completedCount = baseFilteredTasks.filter((t) => t.completed).length;
-
-  const todayCount = baseFilteredTasks.filter((task) => {
-    if (!task.dueDate) return false;
+  // Get start of today safely for accurate backend querying
+  const localTodayStart = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
-  }).length;
+    return today.getTime();
+  }, []);
 
-  // 3. Now apply the specific "Tab" filter for the final display list
-  const filteredTasks = baseFilteredTasks.filter((task) => {
-    if (activeTab === "pending") return !task.completed;
-    if (activeTab === "completed") return task.completed;
-    if (activeTab === "today") {
-      if (!task.dueDate) return false;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return task.dueDate >= today.getTime() && task.dueDate < tomorrow.getTime();
+  const paginationData = useQuery(api.tasks.getTasksPaginated, userId ? {
+    userId,
+    searchQuery,
+    priorityFilter,
+    goalFilter,
+    activeTab,
+    page: currentPage,
+    limit: TASKS_PER_PAGE,
+    localTodayStart
+  } : "skip");
+
+  // 2. STATE RETENTION (Prevents the UI from flashing a loading skeleton)
+  const [cachedData, setCachedData] = useState<any>(null);
+  useEffect(() => {
+    if (paginationData) {
+      setCachedData(paginationData);
     }
-    return true; // 'all' tab
-  });
-
-  const sortedTasks = filteredTasks.sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
-  });
+  }, [paginationData]);
 
   const handlePlanComplete = () => {
     setActiveTab("today"); // Auto-switch to "Today" tab after planning
   };
 
-  if (!tasks || !goals) {
+  // Only show the skeleton on the VERY FIRST load.
+  if (!cachedData && !paginationData) {
     return <TasksPageSkeleton />;
   }
+  if (!goals) return null;
 
+  // Use new data if available, otherwise fall back to cached data to prevent layout shift
+  const displayData = paginationData || cachedData;
+  const isFetching = !paginationData && cachedData; // True if we are secretly loading new data in the background
+
+  const { tasks: paginatedTasks, counts, totalPages, totalItems, currentPage: safePage } = displayData;
+  const startIndex = (safePage - 1) * TASKS_PER_PAGE;
 
   return (
     <div className="space-y-6 pb-20 lg:pb-8">
@@ -145,22 +159,24 @@ export default function TasksPage() {
 
           {/* Tabs List */}
           <TabsList className="bg-secondary/50 border border-border">
-            <TabsTrigger value="all">All({allCount})</TabsTrigger>
-            <TabsTrigger value="today">
-              Today({todayCount})
-            </TabsTrigger>
-            <TabsTrigger value="pending">Pending({pendingCount})</TabsTrigger>
-            <TabsTrigger value="completed">Completed({completedCount})</TabsTrigger>
+            <TabsTrigger value="all">All({counts.all})</TabsTrigger>
+            <TabsTrigger value="today">Today({counts.today})</TabsTrigger>
+            <TabsTrigger value="pending">Pending({counts.pending})</TabsTrigger>
+            <TabsTrigger value="completed">Completed({counts.completed})</TabsTrigger>
           </TabsList>
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 lg:w-auto w-full">
             <div className="relative flex-1 lg:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              {isFetching && searchInput.length > 0 ? (
+                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              )}
               <Input
                 placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-10 bg-secondary/50 border-border"
               />
             </div>
@@ -196,35 +212,88 @@ export default function TasksPage() {
 
         {/* Content */}
         <TabsContent value={activeTab} className="mt-0">
-          {sortedTasks && sortedTasks.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {sortedTasks.map((task, index) => (
-                <TaskItem
-                  key={task._id}
-                  task={task}
-                  goalColor={getGoalColor(task.goalId)}
-                  goalId={task.goalId}
-                  goalTitle={getGoalTitle(task.goalId)}
-                  showGoalInfo
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
-                <CheckSquare className="w-10 h-10 text-primary" />
+          <div className={cn("transition-opacity duration-300", isFetching ? "opacity-60 pointer-events-none" : "opacity-100")}>
+            {paginatedTasks && paginatedTasks.length > 0 ? (
+              <div className="flex flex-col space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {paginatedTasks.map((task: any, index: number) => (
+                    <TaskItem
+                      key={task._id}
+                      task={task}
+                      goalColor={getGoalColor(task.goalId)}
+                      goalId={task.goalId}
+                      goalTitle={getGoalTitle(task.goalId)}
+                      showGoalInfo
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    />
+                  ))}
+                </div>
+
+                {/* Server-Side Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 px-2 border-t border-white/5 animate-fade-in">
+                    <div className="text-xs text-muted-foreground font-mono">
+                      Showing <span className="text-foreground">{startIndex + 1}-{Math.min(startIndex + TASKS_PER_PAGE, totalItems)}</span> of <span className="text-foreground">{totalItems}</span> tasks
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={safePage === 1 || isFetching}
+                        className="border-white/10 bg-secondary/50 hover:bg-secondary h-8 px-3"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                      </Button>
+                      
+                      <div className="flex items-center gap-1 px-2 overflow-x-auto max-w-[200px] hide-scrollbar">
+                        {Array.from({ length: totalPages }).map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            disabled={isFetching}
+                            className={cn(
+                              "w-7 h-7 rounded-md text-xs font-mono font-medium transition-colors flex items-center justify-center shrink-0",
+                              safePage === i + 1 
+                                ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(0,100,255,0.3)]" 
+                                : "text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+                            )}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={safePage === totalPages || isFetching}
+                        className="border-white/10 bg-secondary/50 hover:bg-secondary h-8 px-3"
+                      >
+                        Next <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                No tasks found
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                {activeTab === 'today'
-                  ? "Your day is clear! Use 'Plan My Day' to fill it up."
-                  : "Try adjusting your filters or create a new task."}
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
+                  <CheckSquare className="w-10 h-10 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  No tasks found
+                </h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  {activeTab === 'today'
+                    ? "Your day is clear! Use 'Plan My Day' to fill it up."
+                    : "Try adjusting your filters or create a new task."}
+                </p>
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

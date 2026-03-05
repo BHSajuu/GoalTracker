@@ -44,6 +44,93 @@ export const getByUser = query({
   },
 });
 
+export const getTasksPaginated = query({
+  args: {
+    userId: v.id("users"),
+    searchQuery: v.string(),
+    priorityFilter: v.string(),
+    goalFilter: v.string(),
+    activeTab: v.string(),
+    page: v.number(),
+    limit: v.number(),
+    localTodayStart: v.number(), // Passed from frontend for accurate timezone "Today"
+  },
+  handler: async (ctx, args) => {
+    // 1. Fetch active tasks for user
+    const allTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+      
+    const activeTasks = allTasks.filter((t) => !t.isArchived);
+
+    // 2. Apply Global Filters (Search, Priority, Goal)
+    const baseFiltered = activeTasks.filter((task) => {
+      const matchesSearch = task.title.toLowerCase().includes(args.searchQuery.toLowerCase());
+      const matchesPriority = args.priorityFilter === "all" || task.priority === args.priorityFilter;
+      const matchesGoal = args.goalFilter === "all" || task.goalId === args.goalFilter;
+      return matchesSearch && matchesPriority && matchesGoal;
+    });
+
+    // 3. Calculate Tab Counts based on Global Filters
+    const allCount = baseFiltered.length;
+    const pendingCount = baseFiltered.filter((t) => !t.completed).length;
+    const completedCount = baseFiltered.filter((t) => t.completed).length;
+    
+    const localTomorrowStart = args.localTodayStart + 24 * 60 * 60 * 1000;
+    const todayCount = baseFiltered.filter((task) => {
+      if (!task.dueDate) return false;
+      return task.dueDate >= args.localTodayStart && task.dueDate < localTomorrowStart;
+    }).length;
+
+    const counts = { all: allCount, pending: pendingCount, completed: completedCount, today: todayCount };
+
+    // 4. Apply Tab Filter for the actual display list
+    const tabFiltered = baseFiltered.filter((task) => {
+      if (args.activeTab === "pending") return !task.completed;
+      if (args.activeTab === "completed") return task.completed;
+      if (args.activeTab === "today") {
+        if (!task.dueDate) return false;
+        return task.dueDate >= args.localTodayStart && task.dueDate < localTomorrowStart;
+      }
+      return true; // 'all'
+    });
+
+    // 5. Apply Complex Sorting
+    const sortedTasks = tabFiltered.sort((a, b) => {
+      // 1st: Uncompleted tasks top, completed bottom
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+
+      // 2nd: Due Date (Earliest first)
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+      if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
+        return a.dueDate - b.dueDate;
+      }
+
+      // 3rd: Priority Level
+      const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+    });
+
+    // 6. Paginate Data
+    const totalItems = sortedTasks.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / args.limit));
+    const safePage = Math.min(args.page, totalPages); // Prevent requesting out-of-bounds page
+    const startIndex = (safePage - 1) * args.limit;
+    
+    const paginatedTasks = sortedTasks.slice(startIndex, startIndex + args.limit);
+
+    return {
+      tasks: paginatedTasks,
+      counts,
+      totalPages,
+      totalItems,
+      currentPage: safePage
+    };
+  }
+});
+
 export const getByGoal = query({
   args: {
     goalId: v.id("goals"),

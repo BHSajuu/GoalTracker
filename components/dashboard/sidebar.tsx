@@ -83,7 +83,7 @@ export function DashboardSidebar() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="secondary"
-              className="flex items-center gap-2 px-2 hover:bg-orange-800/70 rounded-full md:rounded-md"
+              className="flex items-center gap-2 px-2 ml-5 hover:bg-orange-800/70 rounded-full md:rounded-md"
             >
               <div className=" flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 hover:bg-gray-800 text-primary font-bold text-xs  transition-all">
                 {userEmail?.charAt(0).toUpperCase()}
@@ -93,7 +93,7 @@ export function DashboardSidebar() {
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 glass">
+          <DropdownMenuContent align="center" className="w-56 glass">
             <div className="px-3 py-2">
               <p className="text-sm font-medium">Account</p>
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>

@@ -148,7 +148,7 @@ export const getDeveloperArchetype = query({
         builder: Math.round((builderScore / totalCategorized) * 100),
         solver: Math.round((solverScore / totalCategorized) * 100),
         prep: Math.round((prepScore / totalCategorized) * 100)
-    } : { builder: 33, solver: 33, prep: 34 }; // Default baseline if no data
+    } : { builder: 0, solver: 0, prep: 0 };
 
     return {
         totalFocusMins,
@@ -159,5 +159,39 @@ export const getDeveloperArchetype = query({
         criticalTasksCount: pendingCritical.length,
         balance
     };
+  }
+});
+
+
+export const confirmAccountDeletion = mutation({
+  args: { userId: v.id("users"), code: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    const otpRecord = await ctx.db
+      .query("otpCodes")
+      .withIndex("by_email", (q) => q.eq("email", user.email))
+      .filter(q => q.eq(q.field("code"), args.code))
+      .filter(q => q.eq(q.field("used"), false))
+      .first();
+
+    if (!otpRecord || otpRecord.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired OTP");
+    }
+
+    await ctx.db.patch(otpRecord._id, { used: true });
+
+    // Cascade Delete User Data
+    const collections = ["tasks", "goals", "notes", "focusSessions"] as const;
+    for (const collection of collections) {
+      const records = await ctx.db.query(collection).withIndex("by_user", q => q.eq("userId", args.userId)).collect();
+      for (const record of records) {
+        await ctx.db.delete(record._id);
+      }
+    }
+
+    await ctx.db.delete(args.userId);
+    return true;
   }
 });

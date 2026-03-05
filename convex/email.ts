@@ -87,3 +87,73 @@ export const sendOtp = action({
     }
   },
 });
+
+export const sendAccountDeletionOtp = action({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await ctx.runMutation(internal.auth.saveOtp, {
+      email: args.email,
+      code,
+    });
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Zielio Security" <${process.env.SMTP_USER}>`,
+      to: args.email,
+      subject: "URGENT: Account Deletion Verification Code",
+      html: `
+         <!DOCTYPE html>
+        <html>
+          <body style="margin: 0; padding: 0; background-color: #0a0a0f; font-family: 'Segoe UI', sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0a0a0f; padding: 40px 20px;">
+              <tr>
+                <td align="center">
+                  <table width="100%" max-width="500" cellpadding="0" cellspacing="0" style="max-width: 500px; background: linear-gradient(135deg, #2e1a1a 0%, #3e1616 100%); border-radius: 16px; border: 1px solid #ff005533; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ff4444; margin: 0 0 10px 0; font-size: 28px; font-weight: 700; letter-spacing: 2px;">WARNING</h1>
+                        <p style="color: #cbd5e1; margin: 0; font-size: 14px; letter-spacing: 1px;">ACCOUNT DELETION REQUESTED</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 0 30px 30px 30px; text-align: center;">
+                        <p style="color: #e2e8f0; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                          You have requested to <strong>permanently delete</strong> your Zielio account. To confirm this destructive action, enter the code below:
+                        </p>
+                        <div style="background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3); border-radius: 12px; padding: 25px; margin: 0 0 30px 0;">
+                          <p style="color: #ff4444; font-size: 36px; font-weight: 700; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
+                            ${code}
+                          </p>
+                        </div>
+                        <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0;">
+                          If you did not request this, please secure your account immediately.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      return { success: true };
+    } catch (error) {
+      console.error("Email sending failed:", error);
+      throw new Error("Failed to send deletion email.");
+    }
+  },
+});
