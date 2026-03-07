@@ -63,7 +63,7 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-between gap-3 lg:opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="icon"

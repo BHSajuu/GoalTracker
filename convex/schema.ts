@@ -49,9 +49,19 @@ export default defineSchema({
     .index("by_goal", ["goalId"])
     .index("by_user_and_date", ["userId", "dueDate"]),
 
+  noteFiles: defineTable({
+    userId: v.id("users"),
+    goalId: v.id("goals"),
+    name: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_goal", ["goalId"])
+    .index("by_user", ["userId"]),
+
   notes: defineTable({
     userId: v.id("users"),
     goalId: v.id("goals"),
+    fileId: v.optional(v.id("noteFiles")), 
     type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
@@ -77,6 +78,9 @@ const formatMarkdownDisplay = (text?: string) => {
 };
 
 export function ImageNoteCard({ note }: ImageNoteCardProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [isEditing, setIsEditing] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [returnToViewOnClose, setReturnToViewOnClose] = useState(false);
@@ -299,7 +303,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               {format(note.createdAt, "MMM d, h:mm a")}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => setIsEditing(true)}>
               <PencilIcon className="w-3.5 h-3.5" />
             </Button>
@@ -318,9 +322,9 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                     onClick={(e) => { e.stopPropagation(); setLightboxIndex(index); }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors duration-300 flex items-center justify-center pointer-events-none">
-                    <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
+                    <Maximize2 className="w-6 h-6 text-white lg:opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
                   </div>
-                  <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+                  <div className="absolute top-2 right-2 lg:opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
                     <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-black/50 hover:bg-blue-600/90 text-white border border-white/20 backdrop-blur-md shadow-lg"
                       onClick={(e) => { e.stopPropagation(); handleAnalyze(url); }} title="Analyze with Llama Vision">
                       <ScanEye className="w-3.5 h-3.5 text-blue-300 group-hover/img:text-white" />
@@ -374,7 +378,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
       {/* PREMIUM tabbed View Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] max-w-lg md:max-w-3xl max-h-[90vh] md:max-h-[95vh] flex flex-col bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.15)] rounded-3xl overflow-hidden p-0">
+        <DialogContent className="z-[100000] w-[95vw] max-w-lg md:max-w-3xl max-h-[90vh] md:max-h-[95vh] flex flex-col bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.15)] rounded-3xl overflow-hidden p-0">
           <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-[90px] -z-10 pointer-events-none" />
           <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-emerald-500/10 rounded-full blur-[90px] -z-10 pointer-events-none" />
 
@@ -455,15 +459,15 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       </Dialog>
 
 
-      {/* Custom Full Screen Lightbox */}
-      {lightboxIndex !== null && (
+      {/* PORTALED FULL SCREEN LIGHTBOX */}
+      {lightboxIndex !== null && mounted && createPortal(
         <div
-          className="fixed top-20 rounded-3xl right-5 left-5 md:inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center md:w-full h-[85vh] md:h-full"
+          className="fixed inset-0 z-[100000] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center pointer-events-auto"
           onClick={closeLightbox}
         >
           <button
             onClick={closeLightbox}
-            className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000]"
+            className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[100001]"
           >
             <X className="w-6 h-6 md:w-8 md:h-8" />
           </button>
@@ -482,7 +486,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               e.stopPropagation();
               handleAnalyze(imagesToDisplay[lightboxIndex]);
             }}
-              className="absolute bottom-6 md:bottom-10 right-4 md:right-10 px-4 py-2 md:px-5 md:py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-50">
+              className="absolute bottom-6 md:bottom-10 right-4 md:right-10 px-4 py-2 md:px-5 md:py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-[100001]">
               <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
               <span className="text-xs md:text-sm font-bold tracking-wide">
                 {!!note.analysis?.[imagesToDisplay[lightboxIndex]] ? "Re-Analyze Image" : "Analyze with Vision"}
@@ -493,24 +497,25 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
               <>
                 <button
                   onClick={handlePrev}
-                  className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110"
+                  className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110 z-[100001]"
                 >
                   <ChevronLeft className="w-6 h-6 md:w-10 md:h-10" />
                 </button>
                 <button
                   onClick={handleNext}
-                  className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110"
+                  className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110 z-[100001]"
                 >
                   <ChevronRight className="w-6 h-6 md:w-10 md:h-10" />
                 </button>
               </>
             )}
 
-            <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-black/60 rounded-full text-white/90 text-xs md:text-sm font-medium tracking-wider">
+            <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-black/60 rounded-full text-white/90 text-xs md:text-sm font-medium tracking-wider z-[100001]">
               {lightboxIndex + 1} / {imagesToDisplay.length}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* AI Analysis/Edit Dialog */}
@@ -518,7 +523,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
         if (!open) handleCloseAiDialog();
         else setShowAiDialog(true);
       }}>
-        <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[90vh] md:max-h-[95vh] bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0 flex flex-col">
+        <DialogContent className="z-[100000] w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[90vh] md:max-h-[95vh] bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0 flex flex-col">
           <div className="p-4 md:p-6 pb-3 md:pb-4 border-b border-white/5 bg-gradient-to-b from-blue-500/10 to-transparent flex items-center justify-between shrink-0">
             <DialogHeader className="flex flex-col md:flex-row w-[95%] justify-between items-start md:items-center gap-3">
               <div className="flex items-center gap-2 md:gap-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +22,7 @@ interface UpsertNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   userId: Id<"users">;
   goalId?: Id<"goals">;
+  fileId?: Id<"noteFiles">;
   mode: "create" | "edit";
   initialData?: {
     _id: Id<"notes">;
@@ -48,9 +50,15 @@ export function UpsertNoteDialog({
   onOpenChange,
   userId,
   goalId,
+  fileId,
   mode,
   initialData,
 }: UpsertNoteDialogProps) {
+  
+  // Required for Client-Side Portal rendering in Next.js
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [activeTab, setActiveTab] = useState("text");
 
   // Content States
@@ -357,11 +365,11 @@ export function UpsertNoteDialog({
 
       if (mode === "create") {
         if (!userId || !goalId) return;
-        await createNote({ userId, goalId, ...payload });
+        await createNote({ userId, goalId, fileId, ...payload });
         toast.success("Note added successfully");
       } else {
         if (!initialData?._id) return;
-        await updateNote({ id: initialData._id, userId, ...payload });
+        await updateNote({ id: initialData._id, userId, fileId, ...payload });
         toast.success("Note updated");
       }
 
@@ -375,7 +383,10 @@ export function UpsertNoteDialog({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  // React Portal guarantees it mounts directly on the body, escaping all relative layout blocks
+  return createPortal(
     <AnimatePresence>
       {open && (
         <>
@@ -386,11 +397,11 @@ export function UpsertNoteDialog({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => onOpenChange(false)}
-            className="fixed inset-0 bg-black/60 z-50"
+            className="fixed inset-0 bg-black/60 z-[99998]"
           />
 
           {/* Modal Container */}
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-51 pointer-events-none">
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-[99999] pointer-events-none">
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10, filter: "blur(4px)" }}
               animate={{ scale: 1, opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -618,7 +629,7 @@ export function UpsertNoteDialog({
                               <SelectTrigger className="w-45 h-8 bg-background border-white/10 text-xs shadow-sm">
                                 <SelectValue placeholder="Select Language" />
                               </SelectTrigger>
-                              <SelectContent className="z-9999 bg-popover border-border">
+                              <SelectContent className="z-[100000] bg-popover border-border">
                                 <SelectItem value="javascript">JavaScript</SelectItem>
                                 <SelectItem value="typescript">TypeScript</SelectItem>
                                 <SelectItem value="python">Python</SelectItem>
@@ -900,6 +911,7 @@ export function UpsertNoteDialog({
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

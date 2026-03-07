@@ -13,6 +13,7 @@ import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as email from "../email.js";
 import type * as goals from "../goals.js";
+import type * as noteFiles from "../noteFiles.js";
 import type * as notes from "../notes.js";
 import type * as scheduler from "../scheduler.js";
 import type * as tasks from "../tasks.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   email: typeof email;
   goals: typeof goals;
+  noteFiles: typeof noteFiles;
   notes: typeof notes;
   scheduler: typeof scheduler;
   tasks: typeof tasks;

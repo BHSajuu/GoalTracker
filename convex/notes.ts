@@ -1,6 +1,34 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Helper to reuse your exact image URL resolution logic for both queries
+async function resolveNoteImages(ctx: any, notes: any[]) {
+  return await Promise.all(
+    notes.map(async (note) => {
+      let imageUrls: (string | null)[] = [];
+
+      // Case A: New system (Array of Storage IDs)
+      if ((note.type === "image" || note.type === "mixed") && note.images) {
+        imageUrls = await Promise.all(
+          note.images.map(async (storageId: string) => {
+            if (storageId.startsWith("http")) return storageId;
+            return await ctx.storage.getUrl(storageId);
+          })
+        );
+      }
+      // Case B: Legacy system (Single URL in content)
+      else if ((note.type === "image" || note.type === "mixed") && note.content && note.content.startsWith("http") && !note.content.includes(" ")) {
+        imageUrls = [note.content];
+      }
+
+      return {
+        ...note,
+        imageUrls: imageUrls.filter((url): url is string => url !== null)
+      };
+    })
+  );
+}
+
 export const generateUploadUrl = mutation(async (ctx) => {
   return await ctx.storage.generateUploadUrl();
 });
@@ -9,6 +37,7 @@ export const create = mutation({
   args: {
     userId: v.id("users"),
     goalId: v.id("goals"),
+    fileId: v.optional(v.id("noteFiles")),
     type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
@@ -24,6 +53,7 @@ export const create = mutation({
     return await ctx.db.insert("notes", {
       userId: args.userId,
       goalId: args.goalId,
+      fileId: args.fileId,
       type: args.type,
       content: args.content,
       images: args.images,
@@ -39,6 +69,7 @@ export const update = mutation({
   args: {
     id: v.id("notes"),
     userId: v.id("users"),
+    fileId: v.optional(v.id("noteFiles")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
     type: v.optional(v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed"))),
@@ -72,34 +103,21 @@ export const getByGoal = query({
       .order("desc")
       .collect();
 
-    // Map over notes to generate signed URLs for images
-    return await Promise.all(
-      notes.map(async (note) => {
-        let imageUrls: (string | null)[] = [];
+    return await resolveNoteImages(ctx, notes);
+  },
+});
 
-        // Case A: New system (Array of Storage IDs)
-        if ((note.type === "image" || note.type === "mixed") && note.images) {
-          imageUrls = await Promise.all(
-            note.images.map(async (storageId) => {
-              // If it's already a full URL (e.g. from external), return it
-              if (storageId.startsWith("http")) return storageId;
-              // Otherwise, fetch the signed URL from Convex Storage
-              return await ctx.storage.getUrl(storageId);
-            })
-          );
-        }
-        // Case B: Legacy system (Single URL in content)
-        else if ((note.type === "image" || note.type === "mixed") && note.content && note.content.startsWith("http") && !note.content.includes(" ")) {
-          imageUrls = [note.content];
-        }
-
-        // Return the note with an extra 'imageUrls' property
-        return {
-          ...note,
-          imageUrls: imageUrls.filter((url): url is string => url !== null)
-        };
-      })
-    );
+// Required to build the file tree on frontend, properly resolving images!
+export const getByUser = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const notes = await ctx.db
+      .query("notes")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+    
+    return await resolveNoteImages(ctx, notes);
   },
 });
 

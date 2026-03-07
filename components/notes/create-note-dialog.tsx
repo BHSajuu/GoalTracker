@@ -1,33 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { Dispatch, SetStateAction } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { Plus } from "lucide-react";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
 
 interface CreateNoteDialogProps {
+  open: boolean;
+  onOpenChange: Dispatch<SetStateAction<boolean>>;
   userId: Id<"users">;
-  goalId: Id<"goals">;
+  defaultGoalId?: string | Id<"goals"> | undefined;
+  defaultFileId?: string | Id<"noteFiles"> | undefined;
 }
 
-export function CreateNoteDialog({ userId, goalId }: CreateNoteDialogProps) {
-  const [open, setOpen] = useState(false);
-
+export function CreateNoteDialog({
+  open,
+  onOpenChange,
+  userId,
+  defaultGoalId,
+  defaultFileId
+}: CreateNoteDialogProps) {
   return (
-    <>
-      <button
-        className="flex items-center bg-[#6499E9] text-black rounded-3xl px-4 py-1.5  gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
-        onClick={() => setOpen(true)}>
-        <Plus className="w-4 h-4" /> Add Note
-      </button>
-
-      <UpsertNoteDialog
-        open={open}
-        onOpenChange={setOpen}
-        userId={userId}
-        goalId={goalId}
-        mode="create"
-      />
-    </>
+    <UpsertNoteDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      userId={userId}
+      goalId={defaultGoalId as Id<"goals">}
+      fileId={defaultFileId as Id<"noteFiles">}
+      mode="create"
+    />
   );
 }

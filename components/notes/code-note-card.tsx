@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom"; // NEW IMPORT
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
@@ -19,6 +20,10 @@ interface CodeNoteCardProps {
 }
 
 export function CodeNoteCard({ note }: CodeNoteCardProps) {
+  // Required for safe Portal rendering in Next.js
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -62,7 +67,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
         userId: note.userId,
         type: "code",
         content: editContent,
-        language: note.language, 
+        language: note.language,
       });
       toast.success("Code updated successfully");
       setIsEditingLightbox(false);
@@ -103,7 +108,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-between gap-2 lg:opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="icon"
@@ -127,7 +132,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
         <CardContent className="p-0 relative group/code cursor-pointer flex-1 min-h-40" onClick={openLightbox}>
           <div className="h-48 overflow-hidden relative bg-[#1e1e1e] text-[10px] md:text-xs">
             {/* Gradient Fade at bottom to indicate more content */}
-            <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[#1e1e1e]/90 z-10 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1e1e1e]/90 z-10 pointer-events-none" />
 
             <SyntaxHighlighter
               language={(note.language || 'javascript').toLowerCase()}
@@ -148,7 +153,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
 
             {/* Hover Overlay with Expand Icon */}
             <div className="absolute inset-0 z-20 bg-black/0 group-hover/code:bg-black/10 transition-colors flex items-center justify-center">
-              <div className="bg-black/60 p-2 rounded-full opacity-0 group-hover/code:opacity-100 transition-opacity transform scale-90 group-hover/code:scale-100">
+              <div className="bg-black/60 p-2 rounded-full lg:opacity-0 group-hover/code:opacity-100 transition-opacity transform scale-90 group-hover/code:scale-100">
                 <Maximize2 className="w-5 h-5 text-white" />
               </div>
             </div>
@@ -170,10 +175,10 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
         }}
       />
 
-      {/* Full Screen Lightbox / Modal */}
-      {isExpanded && (
+      {/* PORTALED Full Screen Lightbox / Modal */}
+      {isExpanded && mounted && createPortal(
         <div
-          className="fixed inset-0 z-9999 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+          className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 pointer-events-auto"
           onClick={() => {
             setIsExpanded(false);
             setIsEditingLightbox(false);
@@ -246,7 +251,10 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded-full"
-                    onClick={() => setIsExpanded(false)}
+                    onClick={() => {
+                      setIsExpanded(false);
+                      setIsEditingLightbox(false);
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </Button>
@@ -318,7 +326,8 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

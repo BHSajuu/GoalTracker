@@ -264,7 +264,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
               {format(note.createdAt, "MMM d, h:mm a")}
             </span>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-background/50 backdrop-blur-sm rounded-full px-1">
+          <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-background/50 backdrop-blur-sm rounded-full px-1">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={(e) => { e.stopPropagation(); setReturnToDialog(false); setIsEditing(true); }}>
               <Pencil className="w-3.5 h-3.5" />
             </Button>
@@ -340,7 +340,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
             </div>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2 pointer-events-none lg:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
             <span className="text-[10px] font-bold tracking-widest text-indigo-400 bg-background/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-indigo-500/20 flex items-center gap-1.5 shadow-xl pointer-events-auto hover:bg-background transition-colors">
               <Maximize2 className="w-3 h-3" /> View Full Note
             </span>
