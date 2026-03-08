@@ -96,26 +96,24 @@ export function TaskItem({
 
   const handleDelete = async () => {
     if (isHardDelete || optimisticTask.isArchived) {
-      if (confirm("This will permanently delete the task. Continue?")) {
-        setOptimisticTask((prev) => ({ ...prev, isDeleted: true })); // Instantly hide
-        try {
-          await removeTask({ id: task._id, userId: task.userId });
-          await updateGoalProgress({ id: goalId, userId: task.userId });
-          toast.success("Task permanently deleted");
-        } catch (error) {
-          setOptimisticTask((prev) => ({ ...prev, isDeleted: false }));
-          toast.error("Failed to delete task");
-        }
+      setOptimisticTask((prev) => ({ ...prev, isDeleted: true })); // Instantly hide
+      try {
+        await removeTask({ id: task._id, userId: task.userId });
+        await updateGoalProgress({ id: goalId, userId: task.userId });
+        toast.success("Task permanently deleted");
+      } catch (error) {
+        setOptimisticTask((prev) => ({ ...prev, isDeleted: false }));
+        toast.error("Failed to delete task");
       }
     } else {
       setOptimisticTask((prev) => ({ ...prev, isArchived: true })); // Instantly visually archive
       try {
         await archiveTask({ id: task._id, userId: task.userId });
         await updateGoalProgress({ id: goalId, userId: task.userId });
-        toast.success("Task archived successfully");
+        toast.success("Task removed successfully");
       } catch (error) {
         setOptimisticTask((prev) => ({ ...prev, isArchived: false }));
-        toast.error("Failed to archive task");
+        toast.error("Failed to remove task");
       }
     }
   };

@@ -4,7 +4,7 @@
 
 <div align="center">
 
-**The Operating System for Ambitious Students**
+**The Operating System for Ambitious Students & Developers**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Convex](https://img.shields.io/badge/Convex-Backend-orange?style=for-the-badge&logo=firebase)](https://convex.dev/)
@@ -22,32 +22,56 @@
 
 **Zielio** (formerly GoalTracker) is not just another to-do list. It is an intelligent productivity platform designed specifically for students and developers who want to stop dreaming and start shipping.
 
-Built with a modern stack (**Next.js 16 + Convex**), Zielio leverages **Generative AI** to transform vague ambitions into concrete, actionable roadmaps. It solves the "overwhelm" problem by intelligently scheduling your day based on your actual availability and deadlines.
+Built with a modern, real-time stack (**Next.js 16 + Convex**), Zielio leverages **Generative AI** and advanced deterministic algorithms to transform vague ambitions into concrete, actionable roadmaps. It solves the "overwhelm" problem by dynamically managing your schedule, tracking your true focus efficiency, and organizing your knowledge base in one unified workspace.
 
-### ✨ Key Features
+---
 
-* **🤖 AI Powered Goal Creation**
-    * Transform vague ideas (e.g., "Learn React") into concrete roadmaps. Our AI agent breaks down huge ambitions into manageable, actionable tasks instantly.
+## ✨ Core Features & Capabilities
+
+### 🧠 Core AI Integrations
+* **🤖 Hybrid AI Scheduling Agent (Chronological Repacking)**
+    * **The Problem:** You fell behind on your schedule. 
+    * **The Solution:** Our "Schedule Healing" algorithm detects drift and rebalances your workload. By using AI for heuristic sorting and strict TypeScript math for bin-packing, it chronologically repacks your missed tasks into future days without violating your daily time capacities or breaking goal dependencies. Fully timezone-aware.
+* **🎯 AI-Powered Goal Breakdown**
+    * Transform vague ideas (e.g., "Learn Next.js") into concrete roadmaps instantly. The AI agent breaks down massive ambitions into manageable, bite-sized tasks with smart time estimations.
+* **💡 "Ask AI" Analytics Insights**
+    * Don't just look at charts. Click the **Ask AI** button on your analytics dashboard to get a personalized, LLM-generated breakdown of your productivity trends, bottlenecks, and actionable advice based entirely on your actual data.
+* **👁️ AI Image Analysis**
+    * Upload a screenshot of a diagram, textbook page, or complex code block, and use the built-in AI Image Analysis feature to extract text, summarize concepts, or explain the visual data directly into your notes.
+
+### ⏱️ The Productivity Engine
 * **📅 Plan My Day Algorithm**
     * Overwhelmed by a long list? Our smart algorithm analyzes your pending tasks, deadlines, and available hours to curate the perfect daily schedule for you.
-* **⏳ AI Powered Overdue Scheduler**
-    * Fell behind? No problem. Our background AI agent automatically detects overdue tasks and intelligently reschedules them ensuring you never lose momentum.
-* **📊 Visual Analytics**
-    * Don't just guess. See your efficiency trends, completion rates, and focus distribution in real-time with beautiful interactive charts.
-* **📝 Rich Notes**
-    * Attach diagrams, screenshots, and resource links directly to your goals. Keep your learning resources exactly where your work is.
+* **⏳ Deep-Integration Focus Timer**
+    * Not just a basic countdown. The Focus Timer locks you into a specific task, tracks your exact active session time, and directly feeds this data back into the database to power your efficiency metrics.
+* **🔮 Predictive Analytics (The Estimation Multiplier)**
+    * Stop guessing how long tasks take. The system algorithmically analyzes your past Focus Timer sessions (comparing your Estimated vs. Actual time) to calculate a personal "Estimation Multiplier". It uses this historical data to predict how long your future tasks will actually take based on your real-world pacing.
+* **🔥 Streak & Activity Tracking**
+    * Stay motivated with a visual, GitHub-style contribution calendar tracking your daily task completions and focus streaks.
+
+### 📊 Data & Knowledge Base
+* **📈 Visual Analytics Dashboard**
+    * See your efficiency trends, completion rates, and focus distribution in real-time with beautiful interactive charts built with Recharts.
+* **📝 Multi-Modal Notes & Filebase System**
+    * A robust notes system powered by Convex File Storage. Beyond text, attach dedicated Code Snippets (with syntax highlighting), Image galleries, and Link collections directly to your goals.
 
 ---
 
 ## 🛠️ Tech Stack
 
+**Frontend Environment:**
 * **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
-* **Backend & Database:** [Convex](https://convex.dev/) (Real-time, reactive backend)
-* **Authentication:** Custom Auth via OTP
-* **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-* **UI Components:** [Shadcn UI](https://ui.shadcn.com/) & [Lucide React](https://lucide.dev/)
-* **Charts:** [Recharts](https://recharts.org/)
-* **Animation:** Tailwind Animate & Framer Motion concepts
+* **Language:** TypeScript
+* **Styling:** [Tailwind CSS](https://tailwindcss.com/) v4
+* **UI Components:** [Shadcn UI](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/) & [Lucide React](https://lucide.dev/)
+* **Animations:** Framer Motion & Tailwind Animate
+* **Editor & Syntax:** Tiptap & React Syntax Highlighter
+
+**Backend & Data:**
+* **Database & Real-time:** [Convex](https://convex.dev/) (Reactive backend & File Storage)
+* **AI Integration:** NVIDIA API 
+* **Authentication:** Custom OTP Authentication (Nodemailer + Input-OTP)
+* **Data Validation:** Zod + React Hook Form
 
 ---
 
@@ -76,11 +100,13 @@ Follow these steps to set up the project locally on your machine.
     ```
 
 3.  **Environment Setup**
-    Create a `.env.local` file in the root directory and add your Convex deployment URL:
+    Create a `.env.local` file in the root directory and add your Convex deployment URL and AI API keys:
     ```env
     # .env.local
     CONVEX_DEPLOYMENT=your_convex_deployment_url
     NEXT_PUBLIC_CONVEX_URL=your_public_convex_url
+    NVIDIA_MISTRAL_API_KEY=your_nvidia_or_openai_api_key
+    ...others
     ```
 
 4.  **Start the Backend**
@@ -105,19 +131,23 @@ Follow these steps to set up the project locally on your machine.
 ```bash
 ├── app/                  # Next.js App Router pages
 │   ├── dashboard/        # Protected application routes
-│   │   ├── analytics/    # Visual data visualization
+│   │   ├── analytics/    # Visual data visualization & AI Insights
 │   │   ├── goals/        # Goal management views
 │   │   ├── tasks/        # Task planning & listing
-│   │   └── notes/        # Knowledge base
+│   │   └── notes/        # Knowledge base & Editor
+│   ├── api/              # Next.js API Routes (Geo-location tracking)
 │   └── page.tsx          # Landing page
 ├── components/           # Reusable UI components
-│   ├── analytics/        # Charting components
-│   ├── dashboard/        # Sidebar, Header, Stats
+│   ├── analytics/        # Recharts visualization components
+│   ├── dashboard/        # Sidebar, Header, Streak Calendar
+│   ├── tasks/            # Focus Timer & Task Modals
+│   ├── notes/            # AI Image Analysis, Filebase & Code editors
 │   └── ui/               # Shadcn UI primitives
 ├── convex/               # Backend logic
-│   ├── schema.ts         # Database schema definition
-│   ├── tasks.ts          # Task CRUD & logic
-│   ├── goals.ts          # Goal management
-│   ├── agent.ts          # AI agent logic
-│   └── scheduler.ts      # Scheduling algorithms
-└── public/               # Static assets
+│   ├── schema.ts         # Relational database schema definition
+│   ├── agent.ts          # Hybrid scheduling algorithm & AI logic
+│   ├── rateLimit.ts      # AI usage tracking and limits
+│   ├── tasks.ts          # Task CRUD & time tracking
+│   ├── noteFiles.ts      # Convex File Storage handling
+│   └── notes.ts          # Multi-modal note management
+└── public/               # Static assets & Holographic UI elements 

@@ -13,7 +13,11 @@ import Image from "next/image";
 
 export function ScheduleHealingAlert() {
   const { userId } = useAuth();
-  const drift = useQuery(api.agent.getDriftMetrics, userId ? { userId } : "skip");
+  
+  // Capture the user's exact timezone offset
+  const timezoneOffset = new Date().getTimezoneOffset();
+  
+  const drift = useQuery(api.agent.getDriftMetrics, userId ? { userId, timezoneOffset } : "skip");
   const recover = useAction(api.agent.recoverSchedule);
   
   const [isHealing, setIsHealing] = useState(false);
@@ -46,16 +50,17 @@ export function ScheduleHealingAlert() {
     return () => clearInterval(interval);
   }, [isHealing]);
 
- const handleFix = async () => {
-   if (isRateLimited) {
-      window.dispatchEvent(new Event("show-rate-limit-dialog"));
-      return;
+  const handleFix = async () => {
+    if (isRateLimited) {
+       window.dispatchEvent(new Event("show-rate-limit-dialog"));
+       return;
     } 
 
-   setIsHealing(true);
+    setIsHealing(true);
     
-   try {
-      const result = await recover({ userId });
+    try {
+      // Pass the timezone offset to the action
+      const result = await recover({ userId, timezoneOffset });
       
       if (result.success) {
         toast.success("Schedule Rebalanced", {
@@ -139,7 +144,7 @@ export function ScheduleHealingAlert() {
                       </h3>
                       <p className="text-muted-foreground max-w-lg leading-relaxed">
                         You have <span className="text-foreground font-medium">{drift.overdueCount} overdue tasks</span> (~{Math.round(drift.driftMinutes / 60)}h). 
-                        Let AI rebalance your load across the next 3 days to prevent burnout.
+                        Let AI rebalance your load across the next 7 days to prevent burnout.
                       </p>
                     </div>
                   </div>
@@ -184,7 +189,7 @@ export function ScheduleHealingAlert() {
                             left: "85%", 
                             opacity: [0, 1, 1, 0], 
                             scale: [0.5, 1, 1, 0.5],
-                            backgroundColor: ["#ef4444", "#f59e0b", "#4ade80", "#4ade80"] // Red -> Amber -> Green transition
+                            backgroundColor: ["#ef4444", "#f59e0b", "#4ade80", "#4ade80"] 
                           }}
                           transition={{ duration: 2, repeat: Infinity, delay: i * 0.3, ease: "linear" }}
                           className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]"
