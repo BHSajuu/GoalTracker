@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { UpsertGoalDialog } from "./upsert-goal-dialog";
 
 interface GoalCardProps {
-  goal: Doc<"goals"> & { imageUrl?: string };
+  goal: Doc<"goals">;
   style?: React.CSSProperties;
 }
 
@@ -36,56 +36,67 @@ export function GoalCard({ goal, style }: GoalCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // OPTIMISTIC STATE
+  const [optimisticGoal, setOptimisticGoal] = useState({
+    status: goal.status,
+    isDeleted: false,
+  });
+
+  useEffect(() => {
+    setOptimisticGoal({
+      status: goal.status,
+      isDeleted: false,
+    });
+  }, [goal.status]);
+
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
 
-  const handleStatusChange = async (
-    status: "active" | "completed" | "paused"
-  ) => {
-    await updateGoal({ id: goal._id, userId: goal.userId, status });
-    toast.success(`Goal ${status === "completed" ? "completed" : status}`);
+  const handleStatusChange = async (status: "active" | "completed" | "paused") => {
+    //  Instant UI update
+    const prevStatus = optimisticGoal.status;
+    setOptimisticGoal((prev) => ({ ...prev, status }));
+
+    try {
+      //  Background Sync
+      await updateGoal({ id: goal._id, userId: goal.userId, status });
+      toast.success(`Goal ${status === "completed" ? "completed" : status}`);
+    } catch (error) {
+      //  Revert
+      setOptimisticGoal((prev) => ({ ...prev, status: prevStatus }));
+      toast.error("Failed to update goal status");
+    }
   };
 
   const handleDelete = async () => {
-    await removeGoal({ id: goal._id, userId: goal.userId });
-    toast.success("Goal deleted");
+    setOptimisticGoal((prev) => ({ ...prev, isDeleted: true })); 
+    try {
+      await removeGoal({ id: goal._id, userId: goal.userId });
+      toast.success("Goal deleted");
+    } catch (error) {
+      setOptimisticGoal((prev) => ({ ...prev, isDeleted: false }));
+      toast.error("Failed to delete goal");
+    }
   };
 
   const daysRemaining = goal.targetDate
     ? Math.ceil((goal.targetDate - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
-  const hasImage = !!goal.imageUrl;
+  // Instantly remove from UI if deleted
+  if (optimisticGoal.isDeleted) return null;
 
   return (
     <>
       <div
-        className={cn(
-          "rounded-2xl overflow-hidden group animate-scale-in shadow-lg hover:scale-105 transition-all duration-300 relative",
-          hasImage ? "bg-black" : "glass-card bg-background/50"
-        )}
+        className="rounded-2xl overflow-hidden group animate-scale-in shadow-lg hover:scale-105 transition-all duration-300 relative glass-card bg-background/50"
         style={{
           ...style,
-          boxShadow: isHovered
-            ? `0 10px 40px -10px ${goal.color}66`
-            : undefined,
+          boxShadow: isHovered ? `0 10px 40px -10px ${goal.color}66` : undefined,
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* BACKGROUND IMAGE LAYER */}
-        {hasImage && (
-          <>
-            <img
-              src={goal.imageUrl}
-              alt={goal.title}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 z-0 opacity-50"
-            />
-            {/* Dark Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/30 z-0 transition-opacity duration-300" />
-          </>
-        )}
-
         <div
           className="h-1 relative z-20"
           style={{
@@ -94,27 +105,19 @@ export function GoalCard({ goal, style }: GoalCardProps) {
         />
 
         {/* CONTENT LAYER */}
-        <div className={cn("p-5 pt-3 relative z-10 flex flex-col h-full", hasImage && "text-white")}>
+        <div className="p-5 pt-3 relative z-10 flex flex-col h-full">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">
               <Link href={`/dashboard/goals/${goal._id}`}>
-                <h3 
-                  className={cn(
-                    "font-semibold truncate text-lg transition-colors",
-                    hasImage 
-                      ? "text-white group-hover:text-gray-500" 
-                      : "text-foreground group-hover:text-primary"
-                  )}
-                >
+                <h3 className="font-semibold truncate text-lg transition-colors text-foreground group-hover:text-primary">
                   {goal.title}
                 </h3>
               </Link>
               <span
                 className="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium backdrop-blur-md"
                 style={{
-                  backgroundColor: hasImage ? `${goal.color}40` : `${goal.color}20`,
-                  color: hasImage ? '#fff' : goal.color,
-                  border: hasImage ? `1px solid ${goal.color}80` : 'none'
+                  backgroundColor: `${goal.color}20`,
+                  color: goal.color,
                 }}
               >
                 {goal.category}
@@ -126,12 +129,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn(
-                    "h-8 w-8 shrink-0 hover:bg-white/20",
-                    hasImage 
-                      ? "text-white/70 hover:text-white" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+                  className="h-8 w-8 shrink-0 hover:bg-white/20 text-muted-foreground hover:text-foreground"
                 >
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
@@ -144,7 +142,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                   <Pencil className="w-4 h-4" /> Edit Goal
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {goal.status !== "completed" && (
+                {optimisticGoal.status !== "completed" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("completed")}
                     className="cursor-pointer gap-2 focus:bg-primary/20"
@@ -153,7 +151,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                     Mark Complete
                   </DropdownMenuItem>
                 )}
-                {goal.status === "active" && (
+                {optimisticGoal.status === "active" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("paused")}
                     className="cursor-pointer gap-2 focus:bg-primary/20"
@@ -162,7 +160,7 @@ export function GoalCard({ goal, style }: GoalCardProps) {
                     Pause Goal
                   </DropdownMenuItem>
                 )}
-                {goal.status === "paused" && (
+                {optimisticGoal.status === "paused" && (
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("active")}
                     className="cursor-pointer gap-2 focus:bg-primary/10"
@@ -184,37 +182,29 @@ export function GoalCard({ goal, style }: GoalCardProps) {
           </div>
 
           {goal.description && (
-            <p 
-              className={cn(
-                "text-sm line-clamp-2 mb-4 h-10",
-                hasImage ? "text-zinc-200" : "text-muted-foreground"
-              )}
-            >
+            <p className="text-sm line-clamp-2 mb-4 h-10 text-muted-foreground">
               {goal.description}
             </p>
           )}
 
           <div className="mb-4 mt-auto">
             <div className="flex items-center justify-between mb-2">
-              <span className={cn("text-sm", hasImage ? "text-zinc-300" : "text-muted-foreground")}>
+              <span className="text-sm text-muted-foreground">
                 Progress
               </span>
-              <span className={cn("text-sm font-medium", hasImage ? "text-white" : "text-foreground")}>
+              <span className="text-sm font-medium text-foreground">
                 {goal.progress}%
               </span>
             </div>
             <Progress
               value={goal.progress}
-              className={cn("h-1.5", hasImage ? "bg-white/20" : "")}
+              className="h-1.5"
               indicatorColor={goal.color}
             />
           </div>
 
-          <div className={cn(
-            "flex items-center justify-between pt-4 border-t",
-            hasImage ? "border-white/20" : "border-border/50"
-          )}>
-            <div className={cn("flex items-center gap-4 text-xs", hasImage ? "text-zinc-300" : "text-muted-foreground")}>
+          <div className="flex items-center justify-between pt-4 border-t border-border/50">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
               {goal.targetDate && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5" />
@@ -228,13 +218,13 @@ export function GoalCard({ goal, style }: GoalCardProps) {
             </div>
             <span
               className={cn(
-                "px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm",
-                goal.status === "active" && (hasImage ? "bg-green-500/40 text-green-100" : "bg-green-500/20 text-green-400"),
-                goal.status === "completed" && (hasImage ? "bg-primary/80 text-white" : "bg-primary/20 text-primary"),
-                goal.status === "paused" && (hasImage ? "bg-yellow-500/40 text-yellow-100" : "bg-yellow-500/20 text-yellow-400")
+                "px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm transition-colors duration-300",
+                optimisticGoal.status === "active" && "bg-green-500/20 text-green-400",
+                optimisticGoal.status === "completed" && "bg-primary/20 text-primary",
+                optimisticGoal.status === "paused" && "bg-yellow-500/20 text-yellow-400"
               )}
             >
-              {goal.status}
+              {optimisticGoal.status}
             </span>
           </div>
         </div>

@@ -13,10 +13,10 @@ import { TasksByPriorityChart } from "@/components/analytics/tasks-by-priority-c
 import { GoalProgressChart } from "@/components/analytics/goal-progress-chart";
 import { AnalyticsSkeleton } from "@/components/analytics/analytics-skeleton";
 import { Button } from "@/components/ui/button";
-import { 
-  Sparkles, ChevronDown, RefreshCw, BrainCircuit, Activity, 
+import {
+  Sparkles, ChevronDown, RefreshCw, BrainCircuit, Activity,
   FileText, CheckCircle2, Target, Calendar,
-  Lightbulb, TrendingUp, Zap 
+  Lightbulb, TrendingUp, Zap
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ const AIMarkdownComponents = {
     </h3>
   ),
   p: ({ node, ...props }: any) => (
-    <p className="mb-4 text-[14px] leading-relaxed text-foreground/80 font-normal hidden" {...props} /> 
+    <p className="mb-4 text-[14px] leading-relaxed text-foreground/80 font-normal hidden" {...props} />
   ),
   ul: ({ node, ...props }: any) => (
     <ul className="space-y-3 mt-2 mb-4 list-none" {...props} />
@@ -49,7 +49,7 @@ const AIMarkdownComponents = {
 
 export default function AnalyticsPage() {
   const { userId } = useAuth();
-   // Calculate local timezone start of day once per mount
+  // Calculate local timezone start of day once per mount
   const localTodayStart = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -61,13 +61,16 @@ export default function AnalyticsPage() {
   const tasks = useQuery(api.tasks.getByUser, queryArgs);
   // Inject required timezone metric for accurate streak / daily stats calculation
   const stats = useQuery(
-    api.tasks.getStats, 
+    api.tasks.getStats,
     userId ? { userId, localTodayStart } : "skip"
   );
   const generateInsights = useAction(api.ai.generateAnalyticsInsights);
   const [isGenerating, setIsGenerating] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  const usage = useQuery(api.rateLimit.getUsage, userId ? { userId } : "skip");
+  const isRateLimited = usage !== undefined && usage >= 8;
 
   const isLoading = goals === undefined || tasks === undefined || stats === undefined;
 
@@ -91,7 +94,12 @@ export default function AnalyticsPage() {
     : 0;
 
   const handleGenerateAIInsights = async () => {
-    if (!goals || !tasks || !stats) return;
+    if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    }
+    
+    if (!userId || !goals || !tasks || !stats) return;
     setIsGenerating(true);
     setIsExpanded(true);
 
@@ -104,7 +112,7 @@ export default function AnalyticsPage() {
         daily_performance_last_7_days: stats.dailyData.slice(-7)
       };
 
-      const result = await generateInsights({ statsData: JSON.stringify(dataPayload) });
+      const result = await generateInsights({ userId, statsData: JSON.stringify(dataPayload) });
       setInsights(result);
       toast.success("Intelligence mapped successfully!");
     } catch (error) {
@@ -178,9 +186,9 @@ export default function AnalyticsPage() {
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg flex items-center justify-center">
                       {isGenerating ? (
-                         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}>
-                           <Activity className="w-5 h-5 text-indigo-400" />
-                         </motion.div>
+                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}>
+                          <Activity className="w-5 h-5 text-indigo-400" />
+                        </motion.div>
                       ) : (
                         <BrainCircuit className="w-5 h-5 text-indigo-400" />
                       )}
@@ -217,7 +225,7 @@ export default function AnalyticsPage() {
                     >
                       <div className="pt-4 mt-2 border-t border-indigo-500/10">
                         <AnimatePresence mode="wait">
-                          {isGenerating? (
+                          {isGenerating ? (
                             <motion.div
                               key="loading"
                               initial={{ opacity: 0 }}
@@ -226,7 +234,7 @@ export default function AnalyticsPage() {
                               className="relative overflow-hidden rounded-xl border border-indigo-500/20 bg-black/40 w-full shadow-inner"
                             >
                               <div className="relative h-48 sm:h-56 md:h-64 w-full overflow-hidden flex items-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-transparent to-transparent">
-                                
+
                                 {/* 1. Data Ingestion Stream (Left Side) */}
                                 <div className="absolute left-0 top-0 bottom-0 w-1/3 z-10 pointer-events-none">
                                   {leftParticles.map((particle, i) => {
@@ -237,62 +245,62 @@ export default function AnalyticsPage() {
                                         className={`absolute ${particle.color} ${particle.shadow}`}
                                         style={{ top: particle.top }}
                                         initial={{ x: "-50px", scale: 0.6, opacity: 0 }}
-                                        animate={{ 
-                                          x: ["0px", "calc(150vw / 3)"], 
+                                        animate={{
+                                          x: ["0px", "calc(150vw / 3)"],
                                           y: ["0px", `calc(50% - ${particle.top})`],
-                                          scale: [0.6, 0.2], 
-                                          opacity: [0, 1, 0] 
+                                          scale: [0.6, 0.2],
+                                          opacity: [0, 1, 0]
                                         }}
-                                        transition={{ 
-                                          duration: particle.duration, 
-                                          repeat: Infinity, 
-                                          delay: particle.delay, 
-                                          ease: "circIn" 
+                                        transition={{
+                                          duration: particle.duration,
+                                          repeat: Infinity,
+                                          delay: particle.delay,
+                                          ease: "circIn"
                                         }}
                                       >
                                         <Icon className="w-4 h-4 sm:w-6 sm:h-6 md:w-10 md:h-10" />
                                       </motion.div>
                                     );
                                   })}
-                                  
+
                                   <div className="absolute inset-y-0 right-0 left-[-20%] flex flex-col justify-evenly opacity-20">
-                                      {[...Array(6)].map((_, i) => (
-                                          <div key={`track-${i}`} className="h-px w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
-                                      ))}
+                                    {[...Array(6)].map((_, i) => (
+                                      <div key={`track-${i}`} className="h-px w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+                                    ))}
                                   </div>
                                 </div>
 
                                 {/* Horizontal Core Beam */}
                                 <div className="absolute inset-x-0 h-px bg-indigo-500/10 top-1/2 -translate-y-1/2 shadow-[0_0_20px_rgba(99,102,241,0.5)]">
-                                   <motion.div 
-                                      className="h-full w-1/4 bg-gradient-to-r from-transparent via-indigo-400 to-transparent"
-                                      animate={{ x: ["-100%", "400%"] }}
-                                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                   />
+                                  <motion.div
+                                    className="h-full w-1/4 bg-gradient-to-r from-transparent via-indigo-400 to-transparent"
+                                    animate={{ x: ["-100%", "400%"] }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                  />
                                 </div>
 
                                 {/* 2. Neural Core (Center) - Aggressively scaled down on small screens */}
                                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center">
-                                  <motion.div 
+                                  <motion.div
                                     className="absolute w-24 h-24 sm:w-32 sm:h-32 md:w-48 md:h-48 rounded-full border-[1px] border-indigo-500/30 border-t-indigo-300 border-b-purple-400"
                                     animate={{ rotate: 360 }}
                                     transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                                   />
-                                  <motion.div 
+                                  <motion.div
                                     className="absolute w-16 h-16 sm:w-24 sm:h-24 md:w-36 md:h-36 rounded-full border-[2px] border-indigo-500/10 border-l-indigo-400 border-r-indigo-300"
                                     animate={{ rotate: -360 }}
                                     transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                                   />
-                                  
-                                  <motion.div 
+
+                                  <motion.div
                                     className="absolute w-12 h-12 sm:w-20 sm:h-20 md:w-28 md:h-28 rounded-full bg-indigo-500/20 blur-2xl"
                                     animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
                                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                                   />
-                                  
+
                                   <div className="relative w-10 h-10 sm:w-14 sm:h-14 md:w-20 md:h-20 rounded-full bg-black/50 border border-indigo-400/50 backdrop-blur-sm shadow-[0_0_30px_rgba(99,102,241,0.4)] overflow-hidden flex items-center justify-center">
                                     <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-indigo-300 z-10 drop-shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
-                                    <motion.div 
+                                    <motion.div
                                       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-indigo-400/30 blur-md"
                                       animate={{ scale: [0.8, 1.5, 0.8] }}
                                       transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -311,36 +319,36 @@ export default function AnalyticsPage() {
                                       animate={{ opacity: 1, x: 0, scale: 1 }}
                                       transition={{ duration: 0.6, delay: node.delay, ease: "easeOut" }}
                                     >
-                                       <motion.div
-                                         className={`absolute right-[calc(100%-5px)] md:right-[calc(100%-10px)] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r ${node.line} to-transparent opacity-60 z-[-1] w-12 sm:w-24 md:w-[200px]`}
-                                         initial={{ scaleX: 0, transformOrigin: "right" }}
-                                         animate={{ scaleX: 1 }}
-                                         transition={{ duration: 0.8, delay: node.delay - 0.2 }}
-                                       />
+                                      <motion.div
+                                        className={`absolute right-[calc(100%-5px)] md:right-[calc(100%-10px)] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r ${node.line} to-transparent opacity-60 z-[-1] w-12 sm:w-24 md:w-[200px]`}
+                                        initial={{ scaleX: 0, transformOrigin: "right" }}
+                                        animate={{ scaleX: 1 }}
+                                        transition={{ duration: 0.8, delay: node.delay - 0.2 }}
+                                      />
 
-                                       <div className={`p-1 md:p-2 rounded-lg ${node.bg} ${node.border} border relative overflow-hidden shrink-0`}>
+                                      <div className={`p-1 md:p-2 rounded-lg ${node.bg} ${node.border} border relative overflow-hidden shrink-0`}>
+                                        <motion.div
+                                          className="absolute inset-0 bg-white/20"
+                                          animate={{ y: ["100%", "-100%"] }}
+                                          transition={{ duration: 2, repeat: Infinity, delay: node.delay }}
+                                        />
+                                        <node.icon className={`w-3 h-3 md:w-4 md:h-4 ${node.color} relative z-10`} />
+                                      </div>
+
+                                      <div className="flex flex-col gap-1 md:gap-1.5 w-16 sm:w-20 md:w-28">
+                                        <div className="h-1 md:h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                                           <motion.div
-                                            className="absolute inset-0 bg-white/20"
-                                            animate={{ y: ["100%", "-100%"] }}
-                                            transition={{ duration: 2, repeat: Infinity, delay: node.delay }}
+                                            className={`h-full ${node.fill} shadow-[0_0_10px_currentColor]`}
+                                            initial={{ width: "0%" }}
+                                            animate={{ width: ["0%", "100%", "75%"] }}
+                                            transition={{ duration: 2.5, delay: node.delay + 0.5, ease: "circOut" }}
                                           />
-                                          <node.icon className={`w-3 h-3 md:w-4 md:h-4 ${node.color} relative z-10`} />
-                                       </div>
-
-                                       <div className="flex flex-col gap-1 md:gap-1.5 w-16 sm:w-20 md:w-28">
-                                          <div className="h-1 md:h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                             <motion.div
-                                               className={`h-full ${node.fill} shadow-[0_0_10px_currentColor]`}
-                                               initial={{ width: "0%" }}
-                                               animate={{ width: ["0%", "100%", "75%"] }}
-                                               transition={{ duration: 2.5, delay: node.delay + 0.5, ease: "circOut" }}
-                                             />
-                                          </div>
-                                          <div className="flex gap-1.5">
-                                             <div className="h-1 w-1/3 bg-white/10 rounded-full" />
-                                             <div className="h-1 w-1/2 bg-white/5 rounded-full" />
-                                          </div>
-                                       </div>
+                                        </div>
+                                        <div className="flex gap-1.5">
+                                          <div className="h-1 w-1/3 bg-white/10 rounded-full" />
+                                          <div className="h-1 w-1/2 bg-white/5 rounded-full" />
+                                        </div>
+                                      </div>
                                     </motion.div>
                                   ))}
                                 </div>

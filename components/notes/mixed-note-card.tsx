@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -86,7 +86,10 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
   const removeNote = useMutation(api.notes.remove);
   const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
   const analyzeImage = useAction(api.ai.analyzeImage);
-
+  const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
+    
+  const isRateLimited = usage !== undefined && usage >= 8;
+  
   const handleRemove = async () => {
     try {
       await removeNote({ id: note._id, userId: note.userId });
@@ -131,6 +134,11 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
   };
 
   const handleAnalyze = async (url: string) => {
+   if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    }
+
     setIsDialogOpen(false);
     setLightboxIndex(null);
     setReturnToViewOnClose(true); // Return to combined view when done
@@ -143,7 +151,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
     try {
       const base64 = await getBase64Image(url);
-      const rawResult = await analyzeImage({ imageBase64: base64 });
+      const rawResult = await analyzeImage({userId: note.userId, imageBase64: base64 });
       const processedResult = formatMarkdownDisplay(rawResult || "No analysis generated.");
       setEditableAnalysis(processedResult);
     } catch (error: any) {

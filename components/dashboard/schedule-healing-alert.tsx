@@ -19,8 +19,11 @@ export function ScheduleHealingAlert() {
   const [isHealing, setIsHealing] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [statusText, setStatusText] = useState("Initializing AI Agent...");
-
+ 
   if (!userId) return null;
+   
+  const usage = useQuery(api.rateLimit.getUsage, { userId });
+  const isRateLimited = usage !== undefined && usage >= 8;
 
   // Cycling text effect during healing
   useEffect(() => {
@@ -44,8 +47,14 @@ export function ScheduleHealingAlert() {
   }, [isHealing]);
 
  const handleFix = async () => {
-    setIsHealing(true);
-    try {
+   if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    } 
+
+   setIsHealing(true);
+    
+   try {
       const result = await recover({ userId });
       
       if (result.success) {

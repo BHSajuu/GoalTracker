@@ -1,13 +1,25 @@
 import { action } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import OpenAI from "openai";
 
 export const generateGoalPlan = action({
   args: {
+    userId: v.id("users"),
     prompt: v.string(),
     mode: v.union(v.literal("fast"), v.literal("smart")),
   },
   handler: async (ctx, args) => {
+    
+    try {
+      await ctx.runMutation(internal.rateLimit.increment, { userId: args.userId });
+    } catch (error: any) {
+      if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
+        throw new Error("Daily AI limit reached (8/8). Please try again tomorrow!");
+      }
+      throw error;
+    }
+
     const today = new Date().toDateString();
 
     let openai: OpenAI;
@@ -131,13 +143,10 @@ export const generateGoalPlan = action({
       try {
         return JSON.parse(cleanContent);
       } catch (error) {
-        console.error("❌ JSON Parse Failed. Raw Clean Content:", cleanContent);
         throw new Error("The AI generated a plan, but it wasn't valid JSON. Please try 'Turbo' mode for now.");
       }
 
     } catch (error: any) {
-      console.error("🔥 AI Generation Error:", error.message);
-      // Pass the error message back to the client so you see it in the Toast
       throw new Error(`AI Error: ${error.message}`);
     }
   },
@@ -146,9 +155,18 @@ export const generateGoalPlan = action({
 
 export const analyzeImage = action({
   args: {
+    userId: v.id("users"),
     imageBase64: v.string(),
   },
   handler: async (ctx, args) => {
+   
+    try {
+      await ctx.runMutation(internal.rateLimit.increment, { userId: args.userId });
+    } catch (error: any) {
+      if (error.message.includes("RATE_LIMIT_EXCEEDED")) throw new Error("Daily AI limit reached (8/8). Please try again tomorrow!");
+      throw error;
+    }
+
     const apiKey = process.env.NVIDIA_LLAMA_VISION_API_KEY;
 
     if (!apiKey) {
@@ -217,65 +235,7 @@ export const analyzeImage = action({
 
       return result;
     } catch (error: any) {
-      console.error("🔥 Vision Error:", error);
       throw new Error("Failed to analyze image: " + error.message);
-    }
-  },
-});
-
-
-export const generateGoalImage = action({
-  args: {
-    description: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const apiKey = process.env.NVIDIA_FLUX_1_SCHNELL_API_KEY;
-    if (!apiKey) throw new Error("Missing NVIDIA_FLUX_1_SCHNELL_API_KEY");
-
-    const invokeUrl = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
-
-    console.log("🎨 Generating Dream Board Image...");
-
-    try {
-      const response = await fetch(invokeUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: "A high-quality, inspiring, modern, cinematic, abstract 3d render representing this goal: " + args.description,
-          width: 1024,
-          height: 1024,
-          steps: 4,
-          seed: Math.floor(Math.random() * 1000000) // Random seed for variety
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`NVIDIA API Error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-
-      // NVIDIA API returns a Base64 string in artifacts
-      const base64 = data.artifacts?.[0]?.base64;
-
-      if (!base64) {
-        throw new Error("No image data returned from API");
-      }
-
-      // 3. Return as a Data URL
-      const imageUrl = `data:image/jpeg;base64,${base64}`;
-
-      console.log("✅ Image Generated Successfully");
-      return imageUrl;
-
-    } catch (error: any) {
-      console.error("🔥 Image Gen Error:", error);
-      throw new Error("Failed to generate image: " + error.message);
     }
   },
 });
@@ -283,12 +243,21 @@ export const generateGoalImage = action({
 
 export const suggestDescription = action({
   args: {
+    userId: v.id("users"),
     title: v.string(),
     type: v.union(v.literal("goal"), v.literal("task")),
     goalTitle: v.optional(v.string()),
     goalDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+   
+    try {
+      await ctx.runMutation(internal.rateLimit.increment, { userId: args.userId });
+    } catch (error: any) {
+      if (error.message.includes("RATE_LIMIT_EXCEEDED")) throw new Error("Daily AI limit reached (8/8). Please try again tomorrow!");
+      throw error;
+    }
+
     const apiKey = process.env.NVIDIA_LLAMA_INSTRUCT_API_KEY;
 
     if (!apiKey) {
@@ -337,7 +306,6 @@ export const suggestDescription = action({
       return content;
 
     } catch (error: any) {
-      console.error("🔥 AI Suggestion Error:", error);
       throw new Error("Failed to generate description.");
     }
   },
@@ -346,9 +314,17 @@ export const suggestDescription = action({
 
 export const generateAnalyticsInsights = action({
   args: {
+    userId: v.id("users"),
     statsData: v.string(), // We will pass a stringified JSON of the user's stats
   },
   handler: async (ctx, args) => {
+    
+    try {
+      await ctx.runMutation(internal.rateLimit.increment, { userId: args.userId });
+    } catch (error: any) {
+      if (error.message.includes("RATE_LIMIT_EXCEEDED")) throw new Error("Daily AI limit reached (8/8). Please try again tomorrow!");
+      throw error;
+    }
 
     const apiKey = process.env.NVIDIA_MISTRAL_8x22b_API_KEY;
 
@@ -362,7 +338,6 @@ export const generateAnalyticsInsights = action({
     });
 
     try {
-      // Using Mistral's massive 8x22B model via NVIDIA for complex data reasoning
       const response = await openai.chat.completions.create({
         model: "mistralai/mixtral-8x22b-instruct-v0.1",
         messages: [
@@ -399,7 +374,6 @@ export const generateAnalyticsInsights = action({
 
       return response.choices[0]?.message?.content || "Failed to generate AI insights.";
     } catch (error) {
-      console.error("NVIDIA AI Analytics Error:", error);
       throw new Error("Failed to generate analytics insights.");
     }
   }

@@ -9,7 +9,6 @@ export const create = mutation({
     category: v.string(),
     targetDate: v.optional(v.number()),
     color: v.string(),
-    imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("goals", {
@@ -21,7 +20,6 @@ export const create = mutation({
       progress: 0,
       status: "active",
       color: args.color,
-      imageUrl: args.imageUrl,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -36,7 +34,6 @@ export const createGoalWithTasks = mutation({
     category: v.string(),
     color: v.string(),
     targetDate: v.number(),
-    imageUrl: v.optional(v.string()),
     tasks: v.array(
       v.object({
         title: v.string(),
@@ -117,7 +114,6 @@ export const update = mutation({
     progress: v.optional(v.number()),
     status: v.optional(v.union(v.literal("active"), v.literal("completed"), v.literal("paused"))),
     color: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...updates } = args;

@@ -15,6 +15,7 @@ import type * as email from "../email.js";
 import type * as goals from "../goals.js";
 import type * as noteFiles from "../noteFiles.js";
 import type * as notes from "../notes.js";
+import type * as rateLimit from "../rateLimit.js";
 import type * as scheduler from "../scheduler.js";
 import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   goals: typeof goals;
   noteFiles: typeof noteFiles;
   notes: typeof notes;
+  rateLimit: typeof rateLimit;
   scheduler: typeof scheduler;
   tasks: typeof tasks;
   users: typeof users;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -17,8 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Loader2, Target, Sparkles, Bot, CheckCircle2,
-  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, ImageIcon, RefreshCw, Wand2, AlignLeft, CalendarClock
+  Loader2, Target, Bot, CheckCircle2,
+  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, Wand2, AlignLeft, CalendarClock
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,6 @@ interface UpsertGoalDialogProps {
     category: string;
     targetDate?: number;
     color: string;
-    imageUrl?: string;
   };
 }
 
@@ -73,7 +72,6 @@ export function UpsertGoalDialog({
   const [category, setCategory] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [color, setColor] = useState(colorOptions[0]);
-  const [imageUrl, setImageUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"manual" | "ai">("manual");
 
@@ -81,11 +79,10 @@ export function UpsertGoalDialog({
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiMode, setAiMode] = useState<"fast" | "smart">("fast");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
 
-  // New Timeframe Detection States
+  // Timeframe Detection States
   const [needsTimeframe, setNeedsTimeframe] = useState(false);
   const [timeframe, setTimeframe] = useState("");
 
@@ -94,8 +91,10 @@ export function UpsertGoalDialog({
   const updateGoal = useMutation(api.goals.update);
   const createGoalWithTasks = useMutation(api.goals.createGoalWithTasks);
   const generatePlan = useAction(api.ai.generateGoalPlan);
-  const generateImage = useAction(api.ai.generateGoalImage);
   const suggestDescription = useAction(api.ai.suggestDescription);
+  const usage = useQuery(api.rateLimit.getUsage, { userId });
+  
+  const isRateLimited = usage !== undefined && usage >= 8;
 
   useEffect(() => {
     if (open) {
@@ -105,7 +104,6 @@ export function UpsertGoalDialog({
         setCategory(initialData.category);
         setTargetDate(initialData.targetDate ? new Date(initialData.targetDate).toISOString().split('T')[0] : "");
         setColor(initialData.color);
-        setImageUrl(initialData.imageUrl || "");
         setActiveTab("manual");
       } else if (mode === "create") {
         resetForm();
@@ -125,7 +123,6 @@ export function UpsertGoalDialog({
     setCategory("");
     setTargetDate("");
     setColor(colorOptions[0]);
-    setImageUrl("");
   };
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -133,27 +130,12 @@ export function UpsertGoalDialog({
     if (needsTimeframe) setNeedsTimeframe(false); // Reset if they edit prompt
   };
 
-  const handleGenerateImage = async () => {
-    const promptText = description || title || aiPrompt;
-    if (!promptText) {
-      toast.error("Enter a title or description first to generate an image.");
+  const handleSuggestDescription = async () => {
+    if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
       return;
     }
-
-    setIsGeneratingImage(true);
-    try {
-      const url = await generateImage({ description: promptText });
-      setImageUrl(url);
-      toast.success("Dream Board cover generated!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate image.");
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const handleSuggestDescription = async () => {
+    
     if (!title.trim()) {
       toast.error("Please enter a Goal Title first.");
       return;
@@ -161,7 +143,7 @@ export function UpsertGoalDialog({
 
     setIsSuggestingDesc(true);
     try {
-      const suggestion = await suggestDescription({ title: title.trim(), type: "goal" });
+      const suggestion = await suggestDescription({userId, title: title.trim(), type: "goal" });
       setDescription(suggestion);
       toast.success("Description auto-filled!");
     } catch (error) {
@@ -184,7 +166,6 @@ export function UpsertGoalDialog({
         category: category.trim(),
         targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
         color,
-        imageUrl: imageUrl !== "" ? imageUrl : "",
       };
 
       if (mode === "create") {
@@ -204,6 +185,11 @@ export function UpsertGoalDialog({
   };
 
   const handleGeneratePlan = async () => {
+    if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    }
+    
     if (!aiPrompt.trim()) return;
 
     // Detect if user mentioned any time-related words
@@ -229,7 +215,7 @@ export function UpsertGoalDialog({
     }
 
     try {
-      const plan = await generatePlan({ prompt: finalPrompt, mode: aiMode });
+      const plan = await generatePlan({ userId, prompt: finalPrompt, mode: aiMode });
       setGeneratedPlan(plan as AiPlan);
       setTitle(plan.title);
       setDescription(plan.description);
@@ -262,7 +248,6 @@ export function UpsertGoalDialog({
         category: generatedPlan.category,
         color: generatedPlan.color || colorOptions[0],
         targetDate: timestamp,
-        imageUrl: imageUrl,
         tasks: generatedPlan.tasks,
       });
       toast.success("Goal and tasks created successfully!");
@@ -280,43 +265,6 @@ export function UpsertGoalDialog({
     visible: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: "easeOut" } },
     exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
   };
-
-  // Reusable Image Section component
-  const renderImageSection = () => (
-    <div className="space-y-2">
-      <Label className="flex items-center justify-between">
-        <span className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover Art</span>
-        {imageUrl && !isGeneratingImage && (
-          <button type="button" onClick={() => setImageUrl("")} className="text-xs text-red-400 hover:text-red-300">Remove</button>
-        )}
-      </Label>
-
-      {isGeneratingImage ? (
-        <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gradient-to-br from-primary/5 to-primary/20 border border-primary/30 flex flex-col items-center justify-center group">
-          <motion.div animate={{ x: ["-100%", "200%"] }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-10" />
-          <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="z-20 p-3 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/50 mb-2 shadow-lg shadow-primary/20">
-            <Palette className="w-5 h-5 text-primary" />
-          </motion.div>
-          <p className="z-20 text-sm font-semibold text-primary tracking-wide">Painting Dream...</p>
-        </div>
-      ) : imageUrl ? (
-        <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 group">
-          <img src={imageUrl} alt="Cover" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button type="button" size="sm" variant="secondary" onClick={handleGenerateImage} disabled={isGeneratingImage}>
-              <RefreshCw className={cn("w-3 h-3 mr-2")} /> Regenerate
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" className="w-full h-12 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all" onClick={handleGenerateImage} disabled={!title && !description && !aiPrompt}>
-            <Sparkles className="w-4 h-4 mr-2" /> Generate AI Cover Art
-          </Button>
-        </div>
-      )}
-    </div>
-  );
 
   // Reusable Description Section with High-Quality Animation
   const renderDescriptionSection = () => (
@@ -471,8 +419,6 @@ export function UpsertGoalDialog({
                     transition={{ duration: 0.2 }}
                   >
                     <form id="manual-form" onSubmit={handleManualSubmit} className="space-y-5">
-
-                      {renderImageSection()}
 
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2"><LayoutTemplate className="w-4 h-4 text-muted-foreground" /> Goal Title</Label>
@@ -726,9 +672,6 @@ export function UpsertGoalDialog({
           ) : (
             // Edit Mode
             <form id="edit-form" onSubmit={handleManualSubmit} className="space-y-5">
-
-              {renderImageSection()}
-
               <div className="space-y-2">
                 <Label>Goal Title</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary/30" required />
@@ -793,7 +736,7 @@ export function UpsertGoalDialog({
             <Button
               type="submit"
               form={mode === "create" ? "manual-form" : "edit-form"}
-              disabled={isLoading || isGeneratingImage}
+              disabled={isLoading}
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : (mode === "create" ? "Create Goal" : "Save Changes")}
             </Button>

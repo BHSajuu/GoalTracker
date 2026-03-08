@@ -76,6 +76,9 @@ export function UpsertTaskDialog({
   const updateTask = useMutation(api.tasks.update);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
   const suggestDescription = useAction(api.ai.suggestDescription);
+  const usage = useQuery(api.rateLimit.getUsage, { userId });
+  
+  const isRateLimited = usage !== undefined && usage >= 8;
 
   useEffect(() => {
     if (open) {
@@ -111,6 +114,11 @@ export function UpsertTaskDialog({
   }, [open, mode, initialData, preselectedGoalId]);
 
   const handleSuggestDescription = async () => {
+    if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    }
+
     if (!title.trim()) {
       toast.error("Please enter a Task Title first.");
       return;
@@ -121,6 +129,7 @@ export function UpsertTaskDialog({
     setIsSuggestingDesc(true);
     try {
       const suggestion = await suggestDescription({
+        userId,
         title: title.trim(),
         type: "task",
         goalTitle: selectedGoal?.title,

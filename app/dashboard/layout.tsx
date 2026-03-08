@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { FocusTimerProvider } from "@/components/tasks/focus-timer";
+import { RateLimitAlert } from "@/components/dashboard/rate-limit-alert";
 
 export default function DashboardLayout({
   children,
@@ -41,9 +42,10 @@ export default function DashboardLayout({
     // Wrap the entire app structure in the Provider
     <FocusTimerProvider>
       <div className="min-h-screen bg-background grid-pattern">
+        <RateLimitAlert userId={userId as any} />
         {/* Desktop Sidebar */}
         <DashboardSidebar />
-        
+
         {/* Main Content Area */}
         <div className="lg:pl-64 ">
           <DashboardHeader />

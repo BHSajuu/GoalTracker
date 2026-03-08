@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,9 @@ export function UpsertNoteDialog({
   const createNote = useMutation(api.notes.create);
   const updateNote = useMutation(api.notes.update);
   const analyzeImage = useAction(api.ai.analyzeImage);
+  const usage = useQuery(api.rateLimit.getUsage, { userId });
+  
+  const isRateLimited = usage !== undefined && usage >= 8;
 
   // Initialize state
   useEffect(() => {
@@ -232,6 +235,11 @@ export function UpsertNoteDialog({
   };
 
   const handleAnalyzeImage = async () => {
+    if (isRateLimited) {
+      window.dispatchEvent(new Event("show-rate-limit-dialog"));
+      return;
+    }
+
     if (selectedFiles.length === 0) {
       toast.error("Please select an image first");
       return;
@@ -244,7 +252,7 @@ export function UpsertNoteDialog({
 
       reader.onloadend = async () => {
         const base64String = reader.result as string;
-        const result = await analyzeImage({ imageBase64: base64String });
+        const result = await analyzeImage({ userId, imageBase64: base64String });
 
         if (result) {
           setText((prev) => prev ? prev + "<br><br><strong>AI Analysis</strong><br>" + result.replace(/\n/g, '<br>') : result.replace(/\n/g, '<br>'));

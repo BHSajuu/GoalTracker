@@ -142,6 +142,15 @@ export const recoverSchedule = action({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    try {
+      await ctx.runMutation(internal.rateLimit.increment, { userId: args.userId });
+    } catch (error: any) {
+      if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
+        throw new Error("Daily AI limit reached (8/8). Please try again tomorrow!");
+      }
+      throw error;
+    }
+   
     const drift = await ctx.runQuery(api.agent.getDriftMetrics, {
       userId: args.userId,
     });

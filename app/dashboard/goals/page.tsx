@@ -57,7 +57,7 @@ export default function GoalsPage() {
   return (
     <div className="space-y-6 pb-20 lg:pb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
+      <div className="flex flex-row items-center justify-between gap-4 animate-slide-up">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
             Goals
@@ -68,7 +68,7 @@ export default function GoalsPage() {
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="flex  items-center w-36 bg-[#6499E9] text-black rounded-3xl px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
+          className="flex  items-center w-32 lg:w-36 bg-[#6499E9] text-black rounded-3xl px-3 lg:px-4 py-1.5 gap-2  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400"
         >
           <Plus className="w-4 h-4" />
           New Goal

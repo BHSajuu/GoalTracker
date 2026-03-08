@@ -26,10 +26,15 @@ export default defineSchema({
     progress: v.number(),
     status: v.union(v.literal("active"), v.literal("completed"), v.literal("paused")),
     color: v.string(),
-    imageUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  aiUsage: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    count: v.number(),
+  }).index("by_user_and_date", ["userId", "date"]),
 
   tasks: defineTable({
     userId: v.id("users"),

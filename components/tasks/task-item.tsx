@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
@@ -22,7 +22,6 @@ import {
   Clock,
   Pencil,
   Archive,
-  Loader2,
   RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,7 +50,24 @@ export function TaskItem({
   isHardDelete = false,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isToggling, setIsToggling] = useState(false);
+
+  // OPTIMISTIC STATE
+  const [optimisticTask, setOptimisticTask] = useState({
+    completed: task.completed,
+    isArchived: task.isArchived,
+    priority: task.priority,
+    isDeleted: false, // Used to instantly hide on permanent delete
+  });
+
+  // Sync local state with database state when data arrives
+  useEffect(() => {
+    setOptimisticTask({
+      completed: task.completed,
+      isArchived: task.isArchived,
+      priority: task.priority,
+      isDeleted: false,
+    });
+  }, [task.completed, task.isArchived, task.priority]);
 
   const { startFocusSession } = useFocusTimer();
 
@@ -63,42 +79,69 @@ export function TaskItem({
   const updateTask = useMutation(api.tasks.update);
 
   const handleToggle = async () => {
-    if (isToggling) return;
-    setIsToggling(true);
+    //  Instantly update UI
+    const newCompletedState = !optimisticTask.completed;
+    setOptimisticTask((prev) => ({ ...prev, completed: newCompletedState }));
+
+    //  Sync in background
     try {
       await toggleComplete({ id: task._id, userId: task.userId });
       await updateGoalProgress({ id: goalId, userId: task.userId });
-    } finally {
-      setIsToggling(false);
+    } catch (error) {
+      //  Revert on failure
+      setOptimisticTask((prev) => ({ ...prev, completed: !newCompletedState }));
+      toast.error("Network error: Failed to update task");
     }
   };
 
   const handleDelete = async () => {
-    // If it's a hard delete view OR if it's already archived, force permanent delete
-    if (isHardDelete || task.isArchived) {
+    if (isHardDelete || optimisticTask.isArchived) {
       if (confirm("This will permanently delete the task. Continue?")) {
-        await removeTask({ id: task._id, userId: task.userId });
-        await updateGoalProgress({ id: goalId, userId: task.userId });
-        toast.success("Task permanently deleted");
+        setOptimisticTask((prev) => ({ ...prev, isDeleted: true })); // Instantly hide
+        try {
+          await removeTask({ id: task._id, userId: task.userId });
+          await updateGoalProgress({ id: goalId, userId: task.userId });
+          toast.success("Task permanently deleted");
+        } catch (error) {
+          setOptimisticTask((prev) => ({ ...prev, isDeleted: false }));
+          toast.error("Failed to delete task");
+        }
       }
     } else {
-      await archiveTask({ id: task._id, userId: task.userId });
-      await updateGoalProgress({ id: goalId, userId: task.userId });
-      toast.success("Task removed successfully");
+      setOptimisticTask((prev) => ({ ...prev, isArchived: true })); // Instantly visually archive
+      try {
+        await archiveTask({ id: task._id, userId: task.userId });
+        await updateGoalProgress({ id: goalId, userId: task.userId });
+        toast.success("Task archived successfully");
+      } catch (error) {
+        setOptimisticTask((prev) => ({ ...prev, isArchived: false }));
+        toast.error("Failed to archive task");
+      }
     }
   };
 
   const handleRestore = async () => {
-    await unarchiveTask({ id: task._id, userId: task.userId });
-    await updateGoalProgress({ id: goalId, userId: task.userId });
-    toast.success("Task restored to active list");
+    setOptimisticTask((prev) => ({ ...prev, isArchived: false }));
+    try {
+      await unarchiveTask({ id: task._id, userId: task.userId });
+      await updateGoalProgress({ id: goalId, userId: task.userId });
+      toast.success("Task restored to active list");
+    } catch (error) {
+      setOptimisticTask((prev) => ({ ...prev, isArchived: true }));
+      toast.error("Failed to restore task");
+    }
   };
 
-  const handlePriorityChange = async (
-    priority: "low" | "medium" | "high"
-  ) => {
-    await updateTask({ id: task._id, userId: task.userId, priority });
-    toast.success("Priority updated");
+  const handlePriorityChange = async (priority: "low" | "medium" | "high") => {
+    const prevPriority = optimisticTask.priority;
+    setOptimisticTask((prev) => ({ ...prev, priority }));
+    try {
+      await updateTask({ id: task._id, userId: task.userId, priority });
+      toast.success("Priority updated");
+    } catch (error) {
+      setOptimisticTask((prev) => ({ ...prev, priority: prevPriority }));
+      toast.error("Failed to update priority");
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -113,10 +156,7 @@ export function TaskItem({
     } else if (timestamp < tomorrow.getTime()) {
       return "Today";
     } else {
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
   };
 
@@ -129,33 +169,29 @@ export function TaskItem({
     return `${m}m`;
   };
 
+  // If hard deleted optimistically, completely hide the component instantly
+  if (optimisticTask.isDeleted) return null;
+
   return (
     <>
       <div
         className={cn(
-          "glass-card rounded-xl p-4 transition-all shadow-lg hover:shadow-blue-300/30 hover:scale-102 transition-all duration-400 ease-in-out",
-          task.completed && "opacity-60",
-          task.isArchived && "opacity-40 grayscale"
+          "glass-card rounded-xl p-4 transition-all shadow-lg hover:shadow-blue-300/30 hover:scale-102 duration-400 ease-in-out",
+          optimisticTask.completed && "opacity-60",
+          optimisticTask.isArchived && "opacity-40 grayscale"
         )}
         style={style}
       >
         <div className="flex items-start gap-4">
           <button
             onClick={handleToggle}
-            disabled={task.isArchived || isToggling}
+            disabled={optimisticTask.isArchived}
             className="mt-0.5 shrink-0 transition-transform hover:scale-110 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
-            {isToggling ? (
-              <Loader2 className="w-6 h-6 animate-spin text-[#F8843F]" />
-            ) : task.completed ? (
-              <CheckCircle2
-                className="w-6 h-6"
-                style={{ color: task.isArchived ? "gray" : goalColor }}
-              />
+            {optimisticTask.completed ? (
+              <CheckCircle2 className="w-6 h-6" style={{ color: optimisticTask.isArchived ? "gray" : goalColor }} />
             ) : (
-              <Circle
-                className="w-6 h-6 text-muted-foreground hover:text-primary transition-colors"
-              />
+              <Circle className="w-6 h-6 text-muted-foreground hover:text-primary transition-colors" />
             )}
           </button>
 
@@ -164,12 +200,12 @@ export function TaskItem({
               <div className="flex-1">
                 <p
                   className={cn(
-                    "font-medium text-foreground",
-                    task.completed && "line-through text-muted-foreground"
+                    "font-medium text-foreground transition-all duration-200",
+                    optimisticTask.completed && "line-through text-muted-foreground"
                   )}
                 >
                   {task.title}
-                  {task.isArchived && (
+                  {optimisticTask.isArchived && (
                     <span className="ml-2 text-xs bg-secondary px-1.5 py-0.5 rounded text-muted-foreground no-underline">
                       Archived
                     </span>
@@ -183,29 +219,25 @@ export function TaskItem({
               </div>
 
               <div className="flex items-center gap-2">
-                {!task.completed && !task.isArchived && (
+                {!optimisticTask.completed && !optimisticTask.isArchived && (
                   <Image
                     src="/timer2.png"
                     alt="Focus"
                     width={30}
                     height={20}
                     onClick={() => startFocusSession(task)}
-                    className="w-7 md:w-8 cursor-pointer"
+                    className="w-7 md:w-8 cursor-pointer hover:scale-110 transition-transform"
                   />
                 )}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground"
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 transition-opacity text-muted-foreground hover:text-foreground">
                       <MoreHorizontal className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {!task.isArchived ? (
+                    {!optimisticTask.isArchived ? (
                       <>
                         <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
                           <Pencil className="w-4 h-4" /> Edit Task
@@ -232,7 +264,7 @@ export function TaskItem({
                     )}
 
                     <DropdownMenuItem onClick={handleDelete} className="gap-2 text-destructive focus:text-destructive">
-                      {isHardDelete || task.isArchived ? (
+                      {isHardDelete || optimisticTask.isArchived ? (
                         <><Trash2 className="w-4 h-4" /> Delete Permanently</>
                       ) : (
                         <><Archive className="w-4 h-4" /> Delete Task</>
@@ -251,18 +283,18 @@ export function TaskItem({
               )}
 
               <span className={cn(
-                "px-2 py-1 rounded-full font-medium",
-                task.priority === "high" && "bg-red-500/15 text-red-400",
-                task.priority === "medium" && "bg-yellow-500/15 text-yellow-400",
-                task.priority === "low" && "bg-green-500/15 text-green-400"
+                "px-2 py-1 rounded-full font-medium transition-colors",
+                optimisticTask.priority === "high" && "bg-red-500/15 text-red-400",
+                optimisticTask.priority === "medium" && "bg-yellow-500/15 text-yellow-400",
+                optimisticTask.priority === "low" && "bg-green-500/15 text-green-400"
               )}>
-                {task.priority}
+                {optimisticTask.priority}
               </span>
 
               {task.dueDate && (
                 <span className={cn(
                   "flex items-center gap-1 px-2 py-1 rounded-full",
-                  task.dueDate < Date.now() && !task.completed ? "bg-red-500/15 text-red-400" : "bg-secondary text-muted-foreground"
+                  task.dueDate < Date.now() && !optimisticTask.completed ? "bg-red-500/15 text-red-400" : "bg-secondary text-muted-foreground"
                 )}>
                   <Calendar className="w-3 h-3" />
                   {formatDate(task.dueDate)}
