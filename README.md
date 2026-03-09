@@ -126,28 +126,8 @@ Follow these steps to set up the project locally on your machine.
 
 ---
 
-## 📂 Project Structure
-
-```bash
-├── app/                  # Next.js App Router pages
-│   ├── dashboard/        # Protected application routes
-│   │   ├── analytics/    # Visual data visualization & AI Insights
-│   │   ├── goals/        # Goal management views
-│   │   ├── tasks/        # Task planning & listing
-│   │   └── notes/        # Knowledge base & Editor
-│   ├── api/              # Next.js API Routes (Geo-location tracking)
-│   └── page.tsx          # Landing page
-├── components/           # Reusable UI components
-│   ├── analytics/        # Recharts visualization components
-│   ├── dashboard/        # Sidebar, Header, Streak Calendar
-│   ├── tasks/            # Focus Timer & Task Modals
-│   ├── notes/            # AI Image Analysis, Filebase & Code editors
-│   └── ui/               # Shadcn UI primitives
-├── convex/               # Backend logic
-│   ├── schema.ts         # Relational database schema definition
-│   ├── agent.ts          # Hybrid scheduling algorithm & AI logic
-│   ├── rateLimit.ts      # AI usage tracking and limits
-│   ├── tasks.ts          # Task CRUD & time tracking
-│   ├── noteFiles.ts      # Convex File Storage handling
-│   └── notes.ts          # Multi-modal note management
-└── public/               # Static assets & Holographic UI elements 
+## 📁 Project Structure highlights
+* `/app`: Next.js App Router pages (Dashboard, Analytics, Tasks, Notes).
+* `/components`: Reusable UI components, heavily modularized (e.g., separate files for AI Generators vs Manual Forms).
+* `/convex`: Backend logic, database schemas, server actions (AI integrations), and mutations.
+* `/lib`: Utility functions and context providers.

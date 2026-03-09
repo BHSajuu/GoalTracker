@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useForm, FormProvider } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -12,18 +15,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Loader2, Target, Bot, CheckCircle2,
-  CalendarDays, LayoutTemplate, Palette, Zap, GraduationCap, Wand2, AlignLeft, CalendarClock
-} from "lucide-react";
+import { Loader2, Bot, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+
+import { ManualGoalForm, colorOptions } from "./manual-goal-form";
+import { AiGoalGenerator, AiPlan } from "./ai-goal-generator";
 
 interface UpsertGoalDialogProps {
   open: boolean;
@@ -40,24 +40,15 @@ interface UpsertGoalDialogProps {
   };
 }
 
-const colorOptions = [
-  "#00d4ff", "#7c3aed", "#10b981", "#f8bd56",
-  "#ef4444", "#e07fb0", "#292cdb", "#155f57",
-];
+const goalSchema = z.object({
+  title: z.string().min(1, "Goal title is required").max(100, "Title is too long"),
+  description: z.string().optional(),
+  category: z.string().min(1, "Category is required"),
+  targetDate: z.string().optional(),
+  color: z.string(),
+});
 
-interface AiPlan {
-  title: string;
-  description: string;
-  category: string;
-  color: string;
-  targetDate: string;
-  tasks: Array<{
-    title: string;
-    priority: "low" | "medium" | "high";
-    estimatedTime: number;
-    dueDateOffset: number;
-  }>;
-}
+type GoalFormValues = z.infer<typeof goalSchema>;
 
 export function UpsertGoalDialog({
   open,
@@ -66,47 +57,55 @@ export function UpsertGoalDialog({
   mode,
   initialData,
 }: UpsertGoalDialogProps) {
-  //  Form States 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [targetDate, setTargetDate] = useState("");
-  const [color, setColor] = useState(colorOptions[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"manual" | "ai">("manual");
 
-  //  AI States 
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiMode, setAiMode] = useState<"fast" | "smart">("fast");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<AiPlan | null>(null);
-
-  // Timeframe Detection States
   const [needsTimeframe, setNeedsTimeframe] = useState(false);
   const [timeframe, setTimeframe] = useState("");
 
-  //  Mutations & Actions 
   const createGoal = useMutation(api.goals.create);
   const updateGoal = useMutation(api.goals.update);
   const createGoalWithTasks = useMutation(api.goals.createGoalWithTasks);
   const generatePlan = useAction(api.ai.generateGoalPlan);
-  const suggestDescription = useAction(api.ai.suggestDescription);
   const usage = useQuery(api.rateLimit.getUsage, { userId });
   
   const isRateLimited = usage !== undefined && usage >= 8;
 
+  const methods = useForm<GoalFormValues>({
+    resolver: zodResolver(goalSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      category: "",
+      targetDate: "",
+      color: colorOptions[0],
+    }
+  });
+
   useEffect(() => {
     if (open) {
+      methods.clearErrors();
       if (mode === "edit" && initialData) {
-        setTitle(initialData.title);
-        setDescription(initialData.description || "");
-        setCategory(initialData.category);
-        setTargetDate(initialData.targetDate ? new Date(initialData.targetDate).toISOString().split('T')[0] : "");
-        setColor(initialData.color);
+        methods.reset({
+          title: initialData.title,
+          description: initialData.description || "",
+          category: initialData.category,
+          targetDate: initialData.targetDate ? new Date(initialData.targetDate).toISOString().split('T')[0] : "",
+          color: initialData.color,
+        });
         setActiveTab("manual");
       } else if (mode === "create") {
-        resetForm();
+        methods.reset({
+          title: "",
+          description: "",
+          category: "",
+          targetDate: "",
+          color: colorOptions[0],
+        });
         setGeneratedPlan(null);
         setAiPrompt("");
         setAiMode("fast");
@@ -115,57 +114,17 @@ export function UpsertGoalDialog({
         setActiveTab("ai");
       }
     }
-  }, [open, mode, initialData]);
+  }, [open, mode, initialData, methods]);
 
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setCategory("");
-    setTargetDate("");
-    setColor(colorOptions[0]);
-  };
-
-  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setAiPrompt(e.target.value);
-    if (needsTimeframe) setNeedsTimeframe(false); // Reset if they edit prompt
-  };
-
-  const handleSuggestDescription = async () => {
-    if (isRateLimited) {
-      window.dispatchEvent(new Event("show-rate-limit-dialog"));
-      return;
-    }
-    
-    if (!title.trim()) {
-      toast.error("Please enter a Goal Title first.");
-      return;
-    }
-
-    setIsSuggestingDesc(true);
-    try {
-      const suggestion = await suggestDescription({userId, title: title.trim(), type: "goal" });
-      setDescription(suggestion);
-      toast.success("Description auto-filled!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to suggest description.");
-    } finally {
-      setIsSuggestingDesc(false);
-    }
-  };
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !category.trim()) return;
-
+  const onSubmit = async (data: GoalFormValues) => {
     setIsLoading(true);
     try {
       const commonData = {
-        title: title.trim(),
-        description: description.trim(),
-        category: category.trim(),
-        targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
-        color,
+        title: data.title.trim(),
+        description: data.description?.trim(),
+        category: data.category.trim(),
+        targetDate: data.targetDate ? new Date(data.targetDate).getTime() : undefined,
+        color: data.color,
       };
 
       if (mode === "create") {
@@ -184,6 +143,11 @@ export function UpsertGoalDialog({
     }
   };
 
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setAiPrompt(e.target.value);
+    if (needsTimeframe) setNeedsTimeframe(false); 
+  };
+
   const handleGeneratePlan = async () => {
     if (isRateLimited) {
       window.dispatchEvent(new Event("show-rate-limit-dialog"));
@@ -192,10 +156,8 @@ export function UpsertGoalDialog({
     
     if (!aiPrompt.trim()) return;
 
-    // Detect if user mentioned any time-related words
     const timeKeywords = /\b(day|days|week|weeks|month|months|year|years|date|by|tomorrow|target|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i;
 
-    // If no timeframe detected and we haven't asked them yet, pause and ask.
     if (!timeKeywords.test(aiPrompt) && !needsTimeframe) {
       setNeedsTimeframe(true);
       return;
@@ -204,7 +166,6 @@ export function UpsertGoalDialog({
     setIsGenerating(true);
     setGeneratedPlan(null);
 
-    // Append timeframe instructions based on user's choice
     let finalPrompt = aiPrompt;
     if (needsTimeframe) {
       if (timeframe.trim()) {
@@ -217,10 +178,10 @@ export function UpsertGoalDialog({
     try {
       const plan = await generatePlan({ userId, prompt: finalPrompt, mode: aiMode });
       setGeneratedPlan(plan as AiPlan);
-      setTitle(plan.title);
-      setDescription(plan.description);
-      setCategory(plan.category);
-      setColor(plan.color);
+      methods.setValue("title", plan.title);
+      methods.setValue("description", plan.description);
+      methods.setValue("category", plan.category);
+      methods.setValue("color", plan.color);
       toast.success("Plan generated!");
     } catch (error) {
       console.error(error);
@@ -260,108 +221,11 @@ export function UpsertGoalDialog({
     }
   };
 
-  const containerVariants: Variants = {
-    hidden: { opacity: 0, scale: 0.95 },
-    visible: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: "easeOut" } },
-    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
-  };
-
-  // Reusable Description Section with High-Quality Animation
-  const renderDescriptionSection = () => (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-2"><AlignLeft className="w-4 h-4 text-muted-foreground" /> Description</Label>
-
-        {/* Animated Auto-Fill Button */}
-        <button
-          type="button"
-          onClick={handleSuggestDescription}
-          disabled={isSuggestingDesc || !title.trim()}
-          className={cn(
-            "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
-            isSuggestingDesc
-              ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-              : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] border border-transparent hover:border-blue-500/20"
-          )}
-        >
-          {/* Button Shine Effect */}
-          {!isSuggestingDesc && (
-            <motion.div
-              animate={{ x: ["-100%", "200%"] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
-              className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"
-            />
-          )}
-
-          <div className="flex items-center gap-1.5 relative z-10">
-            {isSuggestingDesc ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Wand2 className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-            )}
-            {isSuggestingDesc ? "Synthesizing..." : "AI Auto-fill"}
-          </div>
-        </button>
-      </div>
-
-      {/* Textarea with Holographic AI Overlay */}
-      <div className="relative rounded-md overflow-hidden group">
-        <Textarea
-          placeholder="Describe your goal..."
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          disabled={isSuggestingDesc}
-          className={cn(
-            "bg-secondary/30 border-white/10 resize-none min-h-[100px] transition-all duration-300",
-            isSuggestingDesc && "opacity-30 blur-[2px]"
-          )}
-        />
-
-        {/* AI Processing Overlay */}
-        <AnimatePresence>
-          {isSuggestingDesc && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/40 backdrop-blur-[1px] border border-blue-500/30 rounded-md"
-            >
-              {/* Scanning Laser Line */}
-              <motion.div
-                animate={{ top: ["0%", "100%", "0%"] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_12px_rgba(59,130,246,1)] z-20"
-              />
-
-              {/* Pulsing Icon */}
-              <div className="flex flex-col items-center gap-2">
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                  className="p-2 bg-blue-500/20 rounded-full border border-blue-500/40"
-                >
-                  <Bot className="w-5 h-5 text-blue-400" />
-                </motion.div>
-                <motion.span
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className="text-[10px] font-bold tracking-widest text-blue-400 uppercase bg-background/80 px-2 py-0.5 rounded-full"
-                >
-                  Writing
-                </motion.span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg md:max-w-2xl p-0 gap-0 overflow-hidden border-border/40 bg-background/80 backdrop-blur-xl shadow-2xl">
 
-        {/* Header Section */}
+        {/*  Header Section */}
         <div className="p-6 pb-2 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -391,7 +255,6 @@ export function UpsertGoalDialog({
           </DialogHeader>
         </div>
 
-        {/* Content Section */}
         <div className="p-6 pt-4 h-[65vh] md:h-auto md:max-h-[75vh] overflow-y-auto custom-scrollbar">
           {mode === "create" ? (
             <Tabs
@@ -399,11 +262,11 @@ export function UpsertGoalDialog({
               onValueChange={(v) => setActiveTab(v as any)}
               className="w-full h-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-secondary/50 p-1 rounded-xl">
-                <TabsTrigger value="manual" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-300">
+              <TabsList className="grid w-full grid-cols-2  gap-2 lg:gap-20 mb-6 bg-secondary/50 p-1 lg:px-13  rounded-xl">
+                <TabsTrigger value="manual" className="lg:w-55 rounded-lg data-[state=active]:!bg-background data-[state=active]:!text-foreground data-[state=active]:shadow-sm transition-all duration-300">
                   Manual Entry
                 </TabsTrigger>
-                <TabsTrigger value="ai" className="gap-2 rounded-lg data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-400 transition-all duration-300">
+                <TabsTrigger value="ai" className="lg:w-55 gap-2 rounded-lg data-[state=active]:!bg-background data-[state=active]:!text-foreground transition-all duration-300">
                   <Bot className="w-4 h-4" />
                   AI Agent
                 </TabsTrigger>
@@ -418,292 +281,35 @@ export function UpsertGoalDialog({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <form id="manual-form" onSubmit={handleManualSubmit} className="space-y-5">
-
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><LayoutTemplate className="w-4 h-4 text-muted-foreground" /> Goal Title</Label>
-                        <Input
-                          placeholder="e.g., Master AI & Machine Learning"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          className="h-11 bg-secondary/30 border-white/10 focus:border-primary/50 transition-colors"
-                          required
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="flex items-center gap-2"><Target className="w-4 h-4 text-muted-foreground" /> Category</Label>
-                          <Input
-                            placeholder="e.g., Web Dev"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="bg-secondary/30 border-white/10"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="flex items-center gap-2"><CalendarDays className="w-4 h-4 text-muted-foreground" /> Target Date</Label>
-                          <Input
-                            type="date"
-                            value={targetDate}
-                            onChange={(e) => setTargetDate(e.target.value)}
-                            className="bg-secondary/30 border-white/10"
-                          />
-                        </div>
-                      </div>
-
-                      {renderDescriptionSection()}
-
-                      <div className="space-y-3 mb-5">
-                        <Label className="flex items-center gap-2"><Palette className="w-4 h-4 text-muted-foreground" /> Color Theme</Label>
-                        <div className="flex flex-wrap gap-3">
-                          {colorOptions.map((c) => (
-                            <motion.button
-                              key={c}
-                              type="button"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setColor(c)}
-                              className={cn(
-                                "w-8 h-8 rounded-full shadow-sm transition-all border-2",
-                                color === c ? "border-foreground ring-2 ring-offset-2 ring-offset-background" : "border-transparent opacity-70 hover:opacity-100"
-                              )}
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </form>
+                    <FormProvider {...methods}>
+                      <form id="manual-form" onSubmit={methods.handleSubmit(onSubmit)} className="space-y-5">
+                        <ManualGoalForm userId={userId} />
+                      </form>
+                    </FormProvider>
                   </motion.div>
                 </TabsContent>
 
-                {/* AI TAB CONTENT */}
                 <TabsContent value="ai" key="ai" className="mt-0 outline-none h-full" asChild>
-                  <motion.div
-                    key="ai"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="flex flex-col h-full"
-                  >
-                    {isGenerating ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col items-center justify-center h-full min-h-[300px] gap-6"
-                      >
-                        <div className="relative w-32 h-32 flex items-center justify-center">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-                            className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                          />
-                          <motion.div
-                            animate={{ rotate: -360 }}
-                            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-                            className="absolute inset-3 rounded-full border-b-2 border-l-2 border-teal-400/80 shadow-[0_0_15px_rgba(45,212,191,0.3)]"
-                          />
-                          <motion.div
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                            className="z-10 p-4 bg-background/80 backdrop-blur-md rounded-full border border-white/10"
-                          >
-                            <Image src="/ai2.png" alt="AI Architect" width={66} height={66} className="w-8 h-8 text-blue-400" />
-                          </motion.div>
-                          <motion.div
-                            animate={{ top: ["0%", "100%", "0%"] }}
-                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                            className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent z-20 shadow-[0_0_8px_rgba(59,130,246,0.8)]"
-                          />
-                        </div>
-
-                        <div className="text-center space-y-2">
-                          <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 tracking-wide">
-                            Architecting Blueprint...
-                          </h3>
-                          <p className="text-xs text-muted-foreground animate-pulse">
-                            Decomposing goal into actionable milestones & timelines
-                          </p>
-                        </div>
-                      </motion.div>
-                    ) : !generatedPlan ? (
-                      <div className="flex flex-col gap-6 h-full justify-start pt-2">
-                        <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-blue-600/30 via-teal-500/20 to-indigo-600/30">
-                          <div className="rounded-[15px] bg-background/95 backdrop-blur-xl p-6 relative overflow-hidden">
-                            <h3 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2">
-                              <Image src="/ai.png" alt="AI Architect" width={30} height={30} className="text-blue-400" />
-                              AI Architect
-                            </h3>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Describe your ambition. Our AI will decompose it into a structured, actionable roadmap with timelines and priorities.
-                            </p>
-                            <Textarea
-                              placeholder="e.g. I want to learn Next.js and build a portfolio project..."
-                              value={aiPrompt}
-                              onChange={handlePromptChange}
-                              className="min-h-[100px] bg-secondary/30 border-white/10 resize-none text-base focus-visible:ring-blue-500/50 mb-2"
-                            />
-
-                            {/* Animated Timeframe Request Box */}
-                            <AnimatePresence>
-                              {needsTimeframe && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0, y: -10 }}
-                                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  className="overflow-hidden mb-4"
-                                >
-                                  <div className="p-3 mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 text-amber-500 font-medium text-sm">
-                                      <CalendarClock className="w-4 h-4" />
-                                      No timeframe detected!
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      When do you want to achieve this? You can specify a timeframe (e.g., "30 days", "by June"), or leave it blank to let the AI determine a realistic schedule.
-                                    </p>
-                                    <Input
-                                      placeholder="e.g., 30 days (Optional)"
-                                      value={timeframe}
-                                      onChange={(e) => setTimeframe(e.target.value)}
-                                      className="bg-background/50 border-amber-500/20 text-sm h-9"
-                                      autoFocus
-                                    />
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            <div className="grid grid-cols-2 gap-3 mt-2">
-                              <div
-                                onClick={() => setAiMode("fast")}
-                                className={cn(
-                                  "cursor-pointer p-3 rounded-xl border border-white/5 transition-all flex flex-col items-center text-center gap-2 hover:bg-secondary/30",
-                                  aiMode === "fast"
-                                    ? "bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/30"
-                                    : "bg-secondary/20"
-                                )}
-                              >
-                                <Zap className={cn("w-5 h-5", aiMode === "fast" ? "text-teal-400" : "text-muted-foreground")} />
-                                <div>
-                                  <p className={cn("font-bold text-sm", aiMode === "fast" ? "text-teal-400" : "text-muted-foreground")}>Turbo</p>
-                                  <p className="text-[10px] text-muted-foreground/70">Fast. Best for simple goals.</p>
-                                </div>
-                              </div>
-
-                              <div
-                                onClick={() => setAiMode("smart")}
-                                className={cn(
-                                  "cursor-pointer p-3 rounded-xl border border-white/5 transition-all flex flex-col items-center text-center gap-2 hover:bg-secondary/30",
-                                  aiMode === "smart"
-                                    ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-indigo-500/30"
-                                    : "bg-secondary/20"
-                                )}
-                              >
-                                <GraduationCap className={cn("w-5 h-5", aiMode === "smart" ? "text-indigo-400" : "text-muted-foreground")} />
-                                <div>
-                                  <p className={cn("font-bold text-sm", aiMode === "smart" ? "text-indigo-400" : "text-muted-foreground")}>Deep Think</p>
-                                  <p className="text-[10px] text-muted-foreground/70">Reasoning. Best for complex plans.</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <motion.div
-                        initial="hidden"
-                        animate="visible"
-                        variants={containerVariants}
-                        className="space-y-6"
-                      >
-                        <div className="relative overflow-hidden rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-teal-500/5 to-transparent p-5">
-                          <div className="flex items-start justify-between relative z-10">
-                            <div className="space-y-1">
-                              <h3 className="font-bold text-xl text-foreground flex items-center gap-2">
-                                {generatedPlan.title}
-                              </h3>
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded-full border bg-opacity-10",
-                                  aiMode === "fast" ? "bg-teal-500 text-teal-300 border-teal-500/20" : "bg-indigo-500 text-indigo-300 border-indigo-500/20"
-                                )}>
-                                  {aiMode === "fast" ? "Turbo" : "Deep Think"}
-                                </span>
-                                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                  {generatedPlan.category}
-                                </span>
-                              </div>
-                            </div>
-                            <div
-                              className="w-8 h-8 rounded-full shadow-lg ring-2 ring-white/10"
-                              style={{ backgroundColor: generatedPlan.color }}
-                            />
-                          </div>
-                          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                            {generatedPlan.description}
-                          </p>
-                          <p className="mt-2 text-xs text-muted-foreground font-mono">
-                            Target: {generatedPlan.targetDate}
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                            <Zap className="w-4 h-4 text-amber-400" />
-                            Action Plan ({generatedPlan.tasks.length} Steps)
-                          </h4>
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {generatedPlan.tasks.map((task, i) => (
-                              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-white/5">
-                                <span className="text-xs text-muted-foreground">Day {task.dueDateOffset}</span>
-                                <span className="text-sm">{task.title}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                      </motion.div>
-                    )}
-                  </motion.div>
+                  <AiGoalGenerator
+                    isGenerating={isGenerating}
+                    generatedPlan={generatedPlan}
+                    aiPrompt={aiPrompt}
+                    handlePromptChange={handlePromptChange}
+                    needsTimeframe={needsTimeframe}
+                    timeframe={timeframe}
+                    setTimeframe={setTimeframe}
+                    aiMode={aiMode}
+                    setAiMode={setAiMode}
+                  />
                 </TabsContent>
               </AnimatePresence>
             </Tabs>
           ) : (
-            // Edit Mode
-            <form id="edit-form" onSubmit={handleManualSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label>Goal Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary/30" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Input value={category} onChange={(e) => setCategory(e.target.value)} className="bg-secondary/30" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Target Date</Label>
-                  <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="bg-secondary/30" />
-                </div>
-              </div>
-
-              {renderDescriptionSection()}
-
-              <div className="space-y-3">
-                <Label>Color Theme</Label>
-                <div className="flex flex-wrap gap-3">
-                  {colorOptions.map((c) => (
-                    <motion.button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={cn("w-8 h-8 rounded-full border-2", color === c ? "border-foreground" : "border-transparent")}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </form>
+            <FormProvider {...methods}>
+              <form id="edit-form" onSubmit={methods.handleSubmit(onSubmit)} className="space-y-5">
+                <ManualGoalForm userId={userId} />
+              </form>
+            </FormProvider>
           )}
         </div>
 

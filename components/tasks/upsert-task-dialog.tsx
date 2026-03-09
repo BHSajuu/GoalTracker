@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +51,18 @@ interface UpsertTaskDialogProps {
   };
 }
 
+const getTaskSchema = (mode: "create" | "edit") => z.object({
+  title: z.string().min(1, "Task title is required").max(120, "Title is too long"),
+  description: z.string().optional(),
+  goalId: mode === "create" ? z.string().min(1, "Please select a related goal") : z.string().optional(),
+  priority: z.enum(["low", "medium", "high"]),
+  dueDate: z.string().optional(),
+  estHours: z.string().optional(),
+  estMinutes: z.string().optional(),
+});
+
+type TaskFormValues = z.infer<ReturnType<typeof getTaskSchema>>;
+
 export function UpsertTaskDialog({
   open,
   onOpenChange,
@@ -56,20 +71,10 @@ export function UpsertTaskDialog({
   preselectedGoalId,
   initialData,
 }: UpsertTaskDialogProps) {
-  //  States 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [goalId, setGoalId] = useState<string>("");
-  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [dueDate, setDueDate] = useState("");
-
-  const [estHours, setEstHours] = useState("");
-  const [estMinutes, setEstMinutes] = useState("");
-
   const [isLoading, setIsLoading] = useState(false);
   const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   const [isSuggestionApplied, setIsSuggestionApplied] = useState(false);
-  //  Data & Mutations 
+
   const goals = useQuery(api.goals.getByUser, { userId });
   const estimationMultiplier = useQuery(api.tasks.getEstimationMultiplier, { userId });
   const createTask = useMutation(api.tasks.create);
@@ -80,38 +85,61 @@ export function UpsertTaskDialog({
   
   const isRateLimited = usage !== undefined && usage >= 8;
 
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(getTaskSchema(mode)),
+    defaultValues: {
+      title: "",
+      description: "",
+      goalId: preselectedGoalId || "",
+      priority: "medium",
+      dueDate: "",
+      estHours: "",
+      estMinutes: "",
+    }
+  });
+
+  const currentTitle = form.watch("title");
+  const currentGoalId = form.watch("goalId");
+  const estHoursValue = form.watch("estHours");
+  const estMinutesValue = form.watch("estMinutes");
+
   useEffect(() => {
     if (open) {
       setIsSuggestionApplied(false);
+      form.clearErrors();
+      
       if (mode === "edit" && initialData) {
-        setTitle(initialData.title);
-        setDescription(initialData.description || "");
-        setPriority(initialData.priority);
-        setDueDate(initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "");
-        setGoalId(initialData.goalId || "");
-
-        // Convert stored minutes back to H:M
+        let h = "";
+        let m = "";
         if (initialData.estimatedTime) {
-          const h = Math.floor(initialData.estimatedTime / 60);
-          const m = initialData.estimatedTime % 60;
-          setEstHours(h > 0 ? h.toString() : "");
-          setEstMinutes(m > 0 ? m.toString() : "");
-        } else {
-          setEstHours("");
-          setEstMinutes("");
+          const hours = Math.floor(initialData.estimatedTime / 60);
+          const minutes = initialData.estimatedTime % 60;
+          h = hours > 0 ? hours.toString() : "";
+          m = minutes > 0 ? minutes.toString() : "";
         }
 
+        form.reset({
+          title: initialData.title,
+          description: initialData.description || "",
+          priority: initialData.priority,
+          dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "",
+          goalId: initialData.goalId || "",
+          estHours: h,
+          estMinutes: m,
+        });
       } else if (mode === "create") {
-        setTitle("");
-        setDescription("");
-        setPriority("medium");
-        setDueDate("");
-        setEstHours("");
-        setEstMinutes("");
-        setGoalId(preselectedGoalId || "");
+        form.reset({
+          title: "",
+          description: "",
+          priority: "medium",
+          dueDate: "",
+          goalId: preselectedGoalId || "",
+          estHours: "",
+          estMinutes: "",
+        });
       }
     }
-  }, [open, mode, initialData, preselectedGoalId]);
+  }, [open, mode, initialData, preselectedGoalId, form]);
 
   const handleSuggestDescription = async () => {
     if (isRateLimited) {
@@ -119,23 +147,23 @@ export function UpsertTaskDialog({
       return;
     }
 
-    if (!title.trim()) {
-      toast.error("Please enter a Task Title first.");
+    if (!currentTitle?.trim()) {
+      form.setError("title", { type: "manual", message: "Please enter a title first to use AI." });
       return;
     }
 
-    const selectedGoal = goals?.find((g) => g._id === goalId);
+    const selectedGoal = goals?.find((g) => g._id === currentGoalId);
 
     setIsSuggestingDesc(true);
     try {
       const suggestion = await suggestDescription({
         userId,
-        title: title.trim(),
+        title: currentTitle.trim(),
         type: "task",
         goalTitle: selectedGoal?.title,
         goalDescription: selectedGoal?.description
       });
-      setDescription(suggestion);
+      form.setValue("description", suggestion, { shouldDirty: true, shouldValidate: true });
       toast.success("Task description auto-filled!");
     } catch (error) {
       console.error(error);
@@ -145,33 +173,28 @@ export function UpsertTaskDialog({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    if (mode === "create" && !goalId) return;
-
+  const onSubmit = async (data: TaskFormValues) => {
     setIsLoading(true);
     try {
-      // Calculate total minutes
-      const h = parseInt(estHours) || 0;
-      const m = parseInt(estMinutes) || 0;
+      const h = parseInt(data.estHours || "0", 10);
+      const m = parseInt(data.estMinutes || "0", 10);
       const totalMinutes = (h * 60) + m;
 
       const commonData = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        priority,
-        dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
+        title: data.title.trim(),
+        description: data.description?.trim() || undefined,
+        priority: data.priority,
+        dueDate: data.dueDate ? new Date(data.dueDate).getTime() : undefined,
         estimatedTime: totalMinutes > 0 ? totalMinutes : undefined,
       };
 
-      if (mode === "create") {
+      if (mode === "create" && data.goalId) {
         await createTask({
           userId,
-          goalId: goalId as Id<"goals">,
+          goalId: data.goalId as Id<"goals">,
           ...commonData,
         });
-        await updateGoalProgress({ id: goalId as Id<"goals">, userId });
+        await updateGoalProgress({ id: data.goalId as Id<"goals">, userId });
         toast.success("Task created successfully!");
       } else {
         if (!initialData?._id) return;
@@ -193,23 +216,28 @@ export function UpsertTaskDialog({
 
   const activeGoals = goals?.filter((g) => g.status === "active") || [];
 
-  const currentTotalMinutes = (parseInt(estHours) || 0) * 60 + (parseInt(estMinutes) || 0);
-  const showTimeSuggestion = estimationMultiplier !== undefined && estimationMultiplier > 1.1 && currentTotalMinutes > 0 && !isSuggestionApplied;
+  // Safely parse the watched string values back to numbers for the math
+  const currentTotalMinutes = 
+    (parseInt(String(estHoursValue || "0"), 10) * 60) + 
+    parseInt(String(estMinutesValue || "0"), 10);
+
+  const showTimeSuggestion = estimationMultiplier !== undefined && estimationMultiplier > 1.01 && currentTotalMinutes > 0 && !isSuggestionApplied;
+  
   const suggestedMinutes = showTimeSuggestion ? Math.round(currentTotalMinutes * estimationMultiplier) : 0;
   const suggestedH = Math.floor(suggestedMinutes / 60);
   const suggestedM = suggestedMinutes % 60;
 
   const applySuggestedTime = () => {
-    setEstHours(suggestedH > 0 ? suggestedH.toString() : "");
-    setEstMinutes(suggestedM > 0 ? suggestedM.toString() : "");
+    form.setValue("estHours", suggestedH > 0 ? suggestedH.toString() : "", { shouldValidate: true, shouldDirty: true });
+    form.setValue("estMinutes", suggestedM > 0 ? suggestedM.toString() : "", { shouldValidate: true, shouldDirty: true });
     setIsSuggestionApplied(true);
     toast.success("AI suggested time applied!");
   };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 max-h-[95vh] overflow-y-auto border-border/40 bg-background/80 backdrop-blur-xl shadow-2xl">
 
-        {/* Header Section */}
         <div className="p-6 pb-4 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -232,25 +260,26 @@ export function UpsertTaskDialog({
           </DialogHeader>
         </div>
 
-        {/* Form Section */}
         <div className="p-6 pt-4 h-[60vh] md:h-auto overflow-y-auto custom-scrollbar">
-          <form id="task-form" onSubmit={handleSubmit} className="space-y-5">
+          <form id="task-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-            {/* Title */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-foreground/90">
                 <LayoutList className="w-4 h-4 text-muted-foreground" /> Task Title
               </Label>
               <Input
                 placeholder="e.g., Complete Chapter 5 exercises"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="h-11 bg-secondary/30 border-white/10 focus:border-emerald-500/50 transition-colors"
-                required
+                {...form.register("title")}
+                className={cn(
+                  "h-11 bg-secondary/30 border-white/10 transition-colors",
+                  form.formState.errors.title ? "border-red-500 focus-visible:ring-red-500" : "focus:border-emerald-500/50"
+                )}
               />
+              {form.formState.errors.title && (
+                <p className="text-xs text-red-500 font-medium">{form.formState.errors.title.message}</p>
+              )}
             </div>
 
-            {/* Goal Selection (Only for Create Mode) */}
             {mode === "create" && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-foreground/90">
@@ -264,127 +293,154 @@ export function UpsertTaskDialog({
                     </p>
                   </div>
                 ) : (
-                  <Select
-                    value={goalId}
-                    onValueChange={setGoalId}
-                    disabled={!!preselectedGoalId}
-                  >
-                    <SelectTrigger className="h-11 bg-secondary/30 border-white/10">
-                      <SelectValue placeholder="Select a goal..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeGoals.map((goal) => (
-                        <SelectItem key={goal._id} value={goal._id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-2 h-2 rounded-full shadow-[0_0_8px]"
-                              style={{
-                                backgroundColor: goal.color,
-                                boxShadow: `0 0 8px ${goal.color}`
-                              }}
-                            />
-                            {goal.title}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    control={form.control}
+                    name="goalId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={!!preselectedGoalId}
+                      >
+                        <SelectTrigger className={cn(
+                          "h-11 bg-secondary/30 border-white/10",
+                          form.formState.errors.goalId && "border-red-500"
+                        )}>
+                          <SelectValue placeholder="Select a goal..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeGoals.map((goal) => (
+                            <SelectItem key={goal._id} value={goal._id}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-2 h-2 rounded-full shadow-[0_0_8px]"
+                                  style={{
+                                    backgroundColor: goal.color,
+                                    boxShadow: `0 0 8px ${goal.color}`
+                                  }}
+                                />
+                                {goal.title}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                )}
+                {form.formState.errors.goalId && (
+                  <p className="text-xs text-red-500 font-medium">{form.formState.errors.goalId.message}</p>
                 )}
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Priority */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-foreground/90">
                   <AlertCircle className="w-4 h-4 text-muted-foreground" /> Priority
                 </Label>
-                <Select
-                  value={priority}
-                  onValueChange={(v) =>
-                    setPriority(v as "low" | "medium" | "high")
-                  }
-                >
-                  <SelectTrigger className="bg-secondary/30 border-white/10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">
-                      <span className="flex items-center gap-2 text-emerald-400">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
-                        Low
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <span className="flex items-center gap-2 text-amber-400">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
-                        Medium
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <span className="flex items-center gap-2 text-red-400">
-                        <span className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]" />
-                        High
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="bg-secondary/30 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">
+                          <span className="flex items-center gap-2 text-emerald-400">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+                            Low
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="medium">
+                          <span className="flex items-center gap-2 text-amber-400">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
+                            Medium
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="high">
+                          <span className="flex items-center gap-2 text-red-400">
+                            <span className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]" />
+                            High
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
 
-              {/* Due Date */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-foreground/90">
                   <CalendarDays className="w-4 h-4 text-muted-foreground" /> Due Date
                 </Label>
                 <Input
                   type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  {...form.register("dueDate")}
                   className="bg-secondary/30 border-white/10"
                 />
               </div>
             </div>
 
-            {/* Estimated Time */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-foreground/90">
                 <Clock className="w-4 h-4 text-muted-foreground" /> Estimated Duration
               </Label>
               <div className="grid grid-cols-2 gap-4 relative">
+                
+                {/* Fixed Hours Input using Controller */}
                 <div className="relative">
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={estHours}
-                    onChange={(e) => {
-                      setEstHours(e.target.value);
-                      setIsSuggestionApplied(false);
-                    }} className="bg-secondary/30 border-white/10 pr-12"
+                  <Controller
+                    control={form.control}
+                    name="estHours"
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        onChange={(e) => {
+                          field.onChange(e); // Notify RHF of the change
+                          setIsSuggestionApplied(false); // Reset AI suggestion state
+                        }}
+                        className="bg-secondary/30 border-white/10 pr-12"
+                      />
+                    )}
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
                     hours
                   </span>
                 </div>
+                
+                {/* Fixed Minutes Input using Controller */}
                 <div className="relative">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="59"
-                    placeholder="0"
-                    value={estMinutes}
-                    onChange={(e) => {
-                      setEstMinutes(e.target.value);
-                      setIsSuggestionApplied(false);
-                    }} className="bg-secondary/30 border-white/10 pr-12"
+                  <Controller
+                    control={form.control}
+                    name="estMinutes"
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        max="59"
+                        placeholder="0"
+                        onChange={(e) => {
+                          field.onChange(e); // Notify RHF of the change
+                          setIsSuggestionApplied(false); // Reset AI suggestion state
+                        }}
+                        className="bg-secondary/30 border-white/10 pr-12"
+                      />
+                    )}
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
                     mins
                   </span>
                 </div>
               </div>
-              {/* AI Time Suggestion Banner */}
-            <AnimatePresence>
+
+              <AnimatePresence>
                 {showTimeSuggestion && (
                   <motion.div
                     initial={{ opacity: 0, height: 0, y: -10 }}
@@ -394,14 +450,12 @@ export function UpsertTaskDialog({
                   >
                     <div className="relative group flex items-center gap-3 p-3 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.1)] overflow-hidden">
                       
-                      {/* Animated shimmer background */}
                       <motion.div
                         animate={{ x: ["-100%", "200%"] }}
                         transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
                         className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 z-0"
                       />
                       
-                      {/* Pulsing Icon */}
                       <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.3)] shrink-0">
                         <motion.div 
                           animate={{ scale: [1, 1.2, 1] }} 
@@ -411,13 +465,11 @@ export function UpsertTaskDialog({
                         </motion.div>
                       </div>
                       
-                      {/* Text & Badge */}
                       <div className="relative z-10 flex-1 text-xs text-indigo-200/90 leading-relaxed">
                         Historical bias detected (<span className="font-bold text-indigo-300">{estimationMultiplier}x</span>). 
                         AI suggests <span className="font-bold text-white bg-indigo-500/30 px-1.5 py-0.5 rounded-md border border-indigo-500/30 ml-1 shadow-inner whitespace-nowrap">{suggestedH > 0 ? `${suggestedH}h ` : ""}{suggestedM > 0 ? `${suggestedM}m` : ""}</span>
                       </div>
                       
-                      {/* Premium Button */}
                       <Button
                         type="button"
                         size="sm"
@@ -438,10 +490,10 @@ export function UpsertTaskDialog({
                   <AlignLeft className="w-4 h-4 text-muted-foreground" /> Description
                 </Label>
 
-                {/* Animated Auto-Fill Button */}
                 <button
+                  type="button"
                   onClick={handleSuggestDescription}
-                  disabled={isSuggestingDesc || !title.trim()}
+                  disabled={isSuggestingDesc || !currentTitle?.trim()}
                   className={cn(
                     "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
                     isSuggestingDesc
@@ -468,12 +520,10 @@ export function UpsertTaskDialog({
                 </button>
               </div>
 
-              {/* Textarea with Holographic AI Overlay */}
               <div className="relative rounded-md overflow-hidden group">
                 <Textarea
                   placeholder="Add details, sub-steps, or notes..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  {...form.register("description")}
                   disabled={isSuggestingDesc}
                   className={cn(
                     "bg-secondary/30 border-white/10 resize-none min-h-[100px] transition-all duration-300",
@@ -520,7 +570,6 @@ export function UpsertTaskDialog({
           </form>
         </div>
 
-        {/* Footer Actions */}
         <div className="p-6 pt-4 mt-auto border-t border-white/5 flex justify-end gap-3 bg-background/50 backdrop-blur-sm">
           <Button
             type="button"
@@ -534,9 +583,7 @@ export function UpsertTaskDialog({
           <Button
             type="submit"
             form="task-form"
-            disabled={
-              isLoading || !title.trim() || (mode === "create" && !goalId)
-            }
+            disabled={isLoading}
             className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 gap-2"
           >
             {isLoading ? (
