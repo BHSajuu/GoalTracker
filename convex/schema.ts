@@ -7,8 +7,29 @@ export default defineSchema({
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    preferences: v.optional(
+      v.object({
+        pushNotifications: v.boolean(),
+        taskReminders: v.boolean(),
+        streakReminders: v.boolean(),
+        aiQuotaAlerts: v.boolean(),
+        enableAiFeatures: v.boolean(),
+      })
+    ),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
+
+  // table to store Web Push Subscriptions per device
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    deviceType: v.optional(v.string()), // e.g., 'mobile', 'desktop'
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
 
   otpCodes: defineTable({
     email: v.string(),

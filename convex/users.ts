@@ -25,6 +25,14 @@ export const create = mutation({
 
     return await ctx.db.insert("users", {
       email: args.email,
+      // Default preferences for new users
+      preferences: {
+        pushNotifications: false,
+        taskReminders: true,
+        streakReminders: true,
+        aiQuotaAlerts: true,
+        enableAiFeatures: true,
+      },
       createdAt: Date.now(),
     });
   },
@@ -82,7 +90,28 @@ export const updateProfile = mutation({
   }
 });
 
-// Advanced Flow State and Archetype Analytics
+export const updatePreferences = mutation({
+  args: {
+    id: v.id("users"),
+    preferences: v.object({
+      pushNotifications: v.boolean(),
+      taskReminders: v.boolean(),
+      streakReminders: v.boolean(),
+      aiQuotaAlerts: v.boolean(),
+      enableAiFeatures: v.boolean(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(args.id, {
+      preferences: args.preferences,
+    });
+    return true;
+  },
+});
+
 export const getDeveloperArchetype = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {

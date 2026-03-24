@@ -10,13 +10,15 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import {
   Mail, CalendarDays, Shield, Activity, 
   Code, BrainCircuit, UploadCloud, Terminal, 
   Save, Loader2, GitCommitHorizontal, Timer, 
   Compass, AlertTriangle, Briefcase, 
   Puzzle, User, Download, Trash2, 
-  Database
+  Database, Settings, Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -28,7 +30,7 @@ const fadeVariants = {
   exit: { opacity: 0, x: 10, transition: { duration: 0.2 } }
 };
 
-type TabType = "neuro" | "profile" | "data";
+type TabType = "neuro" | "profile" | "preferences" | "data";
 
 export function ProfileDialog({
   open,
@@ -41,6 +43,9 @@ export function ProfileDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabType>("neuro");
   
+  // Custom Hook for Push Notifications
+  const { isSupported, isLoading: pushLoading, subscribeToPush, unsubscribeFromPush } = usePushNotifications(userId ?? undefined);
+
   const now = new Date();
   const localTodayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const user = useQuery(api.users.getById, userId ? { id: userId as Id<"users"> } : "skip");
@@ -49,6 +54,7 @@ export function ProfileDialog({
   
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
+  const updatePreferences = useMutation(api.users.updatePreferences);
   
   const sendDeletionOtp = useAction(api.email.sendAccountDeletionOtp);
   const confirmDelete = useMutation(api.users.confirmAccountDeletion);
@@ -56,8 +62,18 @@ export function ProfileDialog({
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Preferences State
+  const [prefs, setPrefs] = useState({
+    pushNotifications: false,
+    taskReminders: true,
+    streakReminders: true,
+    aiQuotaAlerts: true,
+    enableAiFeatures: true,
+  });
 
   const [otpSent, setOtpSent] = useState(false);
   const [deleteOTP, setDeleteOTP] = useState("");
@@ -72,6 +88,11 @@ export function ProfileDialog({
       setActiveTab("neuro");
       setOtpSent(false);
       setDeleteOTP("");
+      
+      // Load user preferences if they exist
+      if (user.preferences) {
+        setPrefs(user.preferences);
+      }
     }
   }, [user, open]);
 
@@ -128,9 +149,37 @@ export function ProfileDialog({
     }
   };
 
+  const handleSavePreferences = async () => {
+    if (!userId) return;
+    setIsSavingPrefs(true);
+    try {
+      await updatePreferences({ id: userId as Id<"users">, preferences: prefs });
+      toast.success("Preferences saved securely.");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save preferences.");
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const handleMasterPushToggle = async (checked: boolean) => {
+    if (!isSupported) {
+      toast.error("Push notifications are not supported on this browser.");
+      return;
+    }
+
+    if (checked) {
+      await subscribeToPush();
+      setPrefs(p => ({ ...p, pushNotifications: true }));
+    } else {
+      await unsubscribeFromPush();
+      setPrefs(p => ({ ...p, pushNotifications: false }));
+    }
+  };
+
   const handleExportData = () => {
     const dataToExport = {
-      user: { name: user.name, email: user.email, joined: user.createdAt },
+      user: { name: user.name, email: user.email, joined: user.createdAt, preferences: prefs },
       statistics: stats,
       neuroMetrics: archetype
     };
@@ -244,6 +293,7 @@ export function ProfileDialog({
             <div className="p-3 space-y-1 flex-1 overflow-y-auto custom-scrollbar flex md:flex-col gap-1 overflow-x-auto md:overflow-x-hidden">
               <TabButton id="neuro" icon={BrainCircuit} label="Neuro-Metrics" />
               <TabButton id="profile" icon={User} label="Profile & Identity" />
+              <TabButton id="preferences" icon={Settings} label="Preferences" />
               <TabButton id="data" icon={Database} label="Data & Security" />
             </div>
           </div>
@@ -380,7 +430,100 @@ export function ProfileDialog({
                 </motion.div>
               )}
 
-              {/* TAB 3: DATA & SECURITY */}
+              {/* TAB 3: PREFERENCES */}
+              {activeTab === "preferences" && (
+                <motion.div key="preferences" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-1">System Preferences</h3>
+                    <p className="text-sm text-muted-foreground">Configure AI integrations and Push Notifications.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Master Push Toggle */}
+                    <div className="p-5 rounded-xl bg-secondary/10 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-blue-400" /> Push Notifications
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[600px]">
+                          Allow Zielio to send alerts directly to this device, even when the app is closed.
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={prefs.pushNotifications} 
+                        onCheckedChange={handleMasterPushToggle}
+                        disabled={pushLoading || !isSupported}
+                      />
+                    </div>
+
+                    {/* Sub-Notification Toggles (Only enabled if Master is true) */}
+                    <div className={cn("space-y-4 transition-opacity", !prefs.pushNotifications && "opacity-50 pointer-events-none")}>
+                      <Label className="text-xs text-muted-foreground font-mono pl-1">NOTIFICATION CATEGORIES</Label>
+                      
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-white/5">
+                        <div>
+                          <p className="text-sm font-medium">Task Reminders</p>
+                          <p className="text-xs text-muted-foreground">Alerts for tasks due today or upcoming targets.</p>
+                        </div>
+                        <Switch 
+                          checked={prefs.taskReminders} 
+                          onCheckedChange={(c) => setPrefs({ ...prefs, taskReminders: c })} 
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-white/5">
+                        <div>
+                          <p className="text-sm font-medium">Streak Savers</p>
+                          <p className="text-xs text-muted-foreground">Late day reminders if you haven't completed a task.</p>
+                        </div>
+                        <Switch 
+                          checked={prefs.streakReminders} 
+                          onCheckedChange={(c) => setPrefs({ ...prefs, streakReminders: c })} 
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-white/5">
+                        <div>
+                          <p className="text-sm font-medium">AI Quota Alerts</p>
+                          <p className="text-xs text-muted-foreground">Notify me when my daily 8/8 AI limit resets.</p>
+                        </div>
+                        <Switch 
+                          checked={prefs.aiQuotaAlerts} 
+                          onCheckedChange={(c) => setPrefs({ ...prefs, aiQuotaAlerts: c })} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/5 space-y-4">
+                      <Label className="text-xs text-muted-foreground font-mono pl-1">ARTIFICIAL INTELLIGENCE</Label>
+                      <div className="flex items-center justify-between p-5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                        <div>
+                          <h4 className="text-sm font-bold flex items-center gap-2">
+                            <Image src="/ai2.png" alt="AI" width={20} height={20} /> Enable AI Features
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-[600px]">
+                            Allow AI to analyze images, suggest goal breakdowns, and provide analytics insights.
+                          </p>
+                        </div>
+                        <Switch 
+                          checked={prefs.enableAiFeatures} 
+                          onCheckedChange={(c) => setPrefs({ ...prefs, enableAiFeatures: c })} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/5">
+                      <Button onClick={handleSavePreferences} disabled={isSavingPrefs} className="w-full sm:w-auto min-w-[150px] bg-primary text-primary-foreground font-bold shadow-[0_0_20px_rgba(0,212,255,0.2)]">
+                        {isSavingPrefs ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                        Save Preferences
+                      </Button>
+                    </div>
+
+                  </div>
+                </motion.div>
+              )}
+
+              {/* TAB 4: DATA & SECURITY */}
               {activeTab === "data" && (
                 <motion.div key="data" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
                   <div>
