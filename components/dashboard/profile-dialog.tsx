@@ -12,14 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import {
-  Mail, CalendarDays, Shield, Activity, 
-  Code, BrainCircuit, UploadCloud, Terminal, 
-  Save, Loader2, GitCommitHorizontal, Timer, 
-  Compass, AlertTriangle, Briefcase, 
-  Puzzle, User, Download, Trash2, 
-  Database, Settings, Bell
-} from "lucide-react";
+import { Mail, CalendarDays, Shield, Activity,  UploadCloud, Terminal, Save, Loader2, User, Download, Trash2, Database, Settings, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -30,7 +23,7 @@ const fadeVariants = {
   exit: { opacity: 0, x: 10, transition: { duration: 0.2 } }
 };
 
-type TabType = "neuro" | "profile" | "preferences" | "data";
+type TabType = "profile" | "preferences" | "data";
 
 export function ProfileDialog({
   open,
@@ -41,7 +34,7 @@ export function ProfileDialog({
 }) {
   const { userId, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<TabType>("neuro");
+  const [activeTab, setActiveTab] = useState<TabType>("profile");
   
   // Custom Hook for Push Notifications
   const { isSupported, isLoading: pushLoading, subscribeToPush, unsubscribeFromPush } = usePushNotifications(userId ?? undefined);
@@ -50,7 +43,6 @@ export function ProfileDialog({
   const localTodayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const user = useQuery(api.users.getById, userId ? { id: userId as Id<"users"> } : "skip");
   const stats = useQuery(api.tasks.getStats, userId ? { userId: userId as Id<"users">, localTodayStart } : "skip");
-  const archetype = useQuery(api.users.getDeveloperArchetype, userId ? { userId: userId as Id<"users"> } : "skip");
   
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
@@ -85,7 +77,7 @@ export function ProfileDialog({
       setEditName(user.name || "");
       setEditEmail(user.email || "");
       setPreviewUrl(user.imageUrl || null);
-      setActiveTab("neuro");
+      setActiveTab("profile");
       setOtpSent(false);
       setDeleteOTP("");
       
@@ -96,17 +88,9 @@ export function ProfileDialog({
     }
   }, [user, open]);
 
-  if (!user || stats === undefined || archetype === undefined) return null;
+  if (!user || stats === undefined) return null;
 
   const joinDate = new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  const hasData = archetype.totalFocusMins > 0 || stats.totalCompleted > 0;
-
-  const formatHour = (hour: number) => {
-    if (archetype.totalFocusMins === 0) return "--:--";
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const formattedHour = hour % 12 || 12;
-    return `${formattedHour}:00 ${ampm}`;
-  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -181,7 +165,6 @@ export function ProfileDialog({
     const dataToExport = {
       user: { name: user.name, email: user.email, joined: user.createdAt, preferences: prefs },
       statistics: stats,
-      neuroMetrics: archetype
     };
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -244,7 +227,7 @@ export function ProfileDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40 shrink-0">
           <div className="flex items-center gap-2 text-muted-foreground font-mono text-xs truncate">
             <Terminal className="w-4 h-4 text-primary shrink-0" />
-            <span>sys@goaltracker:~/command_center$</span>
+            <span>sys@goaltracker:~/profile_center$</span>
           </div>
           <div className="flex gap-2 shrink-0 mr-10">
             <div className="w-3 h-3 rounded-full bg-red-500/80" />
@@ -291,7 +274,6 @@ export function ProfileDialog({
             </div>
 
             <div className="p-3 space-y-1 flex-1 overflow-y-auto custom-scrollbar flex md:flex-col gap-1 overflow-x-auto md:overflow-x-hidden">
-              <TabButton id="neuro" icon={BrainCircuit} label="Neuro-Metrics" />
               <TabButton id="profile" icon={User} label="Profile & Identity" />
               <TabButton id="preferences" icon={Settings} label="Preferences" />
               <TabButton id="data" icon={Database} label="Data & Security" />
@@ -301,90 +283,7 @@ export function ProfileDialog({
           <div className="flex-1 bg-background flex flex-col min-h-0 relative overflow-y-auto custom-scrollbar p-6">
             <AnimatePresence mode="wait">
               
-              {/* TAB 1: NEURO METRICS */}
-              {activeTab === "neuro" && (
-                <motion.div key="neuro" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-bold mb-1">Developer Archetype</h3>
-                    <p className="text-sm text-muted-foreground">Analytics generated from your behavior patterns.</p>
-                  </div>
-                  
-                  {!hasData ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-white/10 rounded-xl bg-secondary/5">
-                      <BrainCircuit className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-                      <h4 className="text-lg font-bold">System Initializing</h4>
-                      <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                        Insufficient data stream detected. Complete tasks and focus sessions to unlock your personalized Developer Archetype metrics.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                         <div className="p-5 rounded-xl bg-gradient-to-br from-indigo-500/10 to-transparent border border-white/5 space-y-2 relative overflow-hidden">
-                            <Compass className="absolute top-4 right-4 w-12 h-12 text-indigo-500/20" />
-                            <span className="flex items-center gap-2 text-[10px] uppercase text-indigo-400 font-bold tracking-wider"><Timer className="w-3.5 h-3.5"/> Flow Chronotype</span>
-                            <div>
-                              <p className="text-2xl font-bold font-mono text-foreground">{archetype.peakTimeOfDay}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Peak focus hour: <strong className="text-indigo-400">{formatHour(archetype.peakHour)}</strong>
-                              </p>
-                            </div>
-                         </div>
-
-                         <div className="p-5 rounded-xl bg-secondary/10 border border-white/5 space-y-2 relative">
-                            <span className="flex items-center gap-2 text-[10px] uppercase text-muted-foreground font-bold tracking-wider">
-                              <BrainCircuit className="w-3.5 h-3.5"/> Cognitive Load
-                            </span>
-                            <div>
-                              <p className={cn("text-2xl font-bold font-mono tracking-tight flex items-center gap-2", archetype.loadColor)}>
-                                {archetype.cognitiveLoad}
-                                {archetype.cognitiveLoad === "Burnout Risk" && <AlertTriangle className="w-5 h-5 animate-pulse" />}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {archetype.criticalTasksCount} critical tasks due in 72hrs
-                              </p>
-                            </div>
-                         </div>
-                      </div>
-
-                      <div className="p-5 rounded-xl bg-secondary/5 border border-white/5 space-y-5">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <h3 className="text-sm font-bold flex items-center gap-2"><GitCommitHorizontal className="w-4 h-4 text-primary" /> The Growth Balance</h3>
-                          <span className="text-[10px] font-mono text-muted-foreground bg-black/40 px-2 py-1 rounded w-fit">Total Volume: {stats.totalCompleted} Tasks</span>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="h-4 w-full flex rounded-full overflow-hidden border border-white/10 bg-black/50">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${archetype.balance.builder}%` }} transition={{ duration: 1 }} className="bg-blue-500" title="Building" />
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${archetype.balance.solver}%` }} transition={{ duration: 1, delay: 0.1 }} className="bg-purple-500" title="Solving" />
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${archetype.balance.prep}%` }} transition={{ duration: 1, delay: 0.2 }} className="bg-amber-500" title="Preparation" />
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-                              <Code className="w-4 h-4 text-blue-400 mb-1" />
-                              <span className="text-xs font-bold">Building</span>
-                              <span className="text-[10px] text-muted-foreground">{archetype.balance.builder}%</span>
-                            </div>
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
-                              <Puzzle className="w-4 h-4 text-purple-400 mb-1" />
-                              <span className="text-xs font-bold">Solving</span>
-                              <span className="text-[10px] text-muted-foreground">{archetype.balance.solver}%</span>
-                            </div>
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
-                              <Briefcase className="w-4 h-4 text-amber-400 mb-1" />
-                              <span className="text-xs font-bold">Prep</span>
-                              <span className="text-[10px] text-muted-foreground">{archetype.balance.prep}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
-
-              {/* TAB 2: PROFILE & IDENTITY */}
+              {/* TAB 1: PROFILE & IDENTITY */}
               {activeTab === "profile" && (
                 <motion.div key="profile" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
                   <div>
@@ -430,7 +329,7 @@ export function ProfileDialog({
                 </motion.div>
               )}
 
-              {/* TAB 3: PREFERENCES */}
+              {/* TAB 2: PREFERENCES */}
               {activeTab === "preferences" && (
                 <motion.div key="preferences" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
                   <div>
@@ -523,7 +422,7 @@ export function ProfileDialog({
                 </motion.div>
               )}
 
-              {/* TAB 4: DATA & SECURITY */}
+              {/* TAB 3: DATA & SECURITY */}
               {activeTab === "data" && (
                 <motion.div key="data" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
                   <div>
@@ -538,7 +437,7 @@ export function ProfileDialog({
                           <Download className="w-4 h-4 text-blue-400" /> Export Data Vault
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
-                          Download a JSON copy of your profile info, statistics, and developer archetype data.
+                          Download a JSON copy of your profile info and statistics.
                         </p>
                       </div>
                       <Button onClick={handleExportData} variant="outline" className="shrink-0 border-white/10 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400">
