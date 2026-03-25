@@ -6,13 +6,18 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { Mail, CalendarDays, Shield, Activity,  UploadCloud, Terminal, Save, Loader2, User, Download, Trash2, Database, Settings, Bell } from "lucide-react";
+import { useTheme } from "next-themes";
+import {
+  Mail, CalendarDays, Shield, Activity, UploadCloud, Terminal,
+  Save, Loader2, User, Download, Trash2, Database, Settings,
+  Bell, Globe, RefreshCw
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -33,9 +38,10 @@ export function ProfileDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { userId, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabType>("profile");
-  
+
   // Custom Hook for Push Notifications
   const { isSupported, isLoading: pushLoading, subscribeToPush, unsubscribeFromPush } = usePushNotifications(userId ?? undefined);
 
@@ -43,11 +49,12 @@ export function ProfileDialog({
   const localTodayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const user = useQuery(api.users.getById, userId ? { id: userId as Id<"users"> } : "skip");
   const stats = useQuery(api.tasks.getStats, userId ? { userId: userId as Id<"users">, localTodayStart } : "skip");
-  
+
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
   const updatePreferences = useMutation(api.users.updatePreferences);
-  
+  const syncTimezone = useMutation(api.users.syncTimezone);
+
   const sendDeletionOtp = useAction(api.email.sendAccountDeletionOtp);
   const confirmDelete = useMutation(api.users.confirmAccountDeletion);
 
@@ -55,6 +62,7 @@ export function ProfileDialog({
   const [editEmail, setEditEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [isSyncingTz, setIsSyncingTz] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -77,38 +85,34 @@ export function ProfileDialog({
       setEditName(user.name || "");
       setEditEmail(user.email || "");
       setPreviewUrl(user.imageUrl || null);
-      
-      // Only set to profile if it wasn't opened via the AI gate event
+
       if (activeTab !== "preferences") {
         setActiveTab("profile");
       }
-      
+
       setOtpSent(false);
       setDeleteOTP("");
-      
-      // Load user preferences if they exist
+
       if (user.preferences) {
         setPrefs(user.preferences);
       }
     }
   }, [user, open]);
 
-  // Listener for the AI Gate trigger
   useEffect(() => {
     const handleOpenProfileFromAIGate = () => {
-      onOpenChange(true);          // Open the dialog
-      setActiveTab("preferences"); // Jump straight to preferences tab
+      onOpenChange(true);
+      setActiveTab("preferences");
     };
 
     window.addEventListener("open-profile-dialog", handleOpenProfileFromAIGate);
-    return () => {
-      window.removeEventListener("open-profile-dialog", handleOpenProfileFromAIGate);
-    };
+    return () => window.removeEventListener("open-profile-dialog", handleOpenProfileFromAIGate);
   }, [onOpenChange]);
 
   if (!user || stats === undefined) return null;
 
   const joinDate = new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,8 +140,8 @@ export function ProfileDialog({
         const json = await result.json();
         imageId = json.storageId;
       }
-      await updateProfile({ 
-        id: userId as Id<"users">, 
+      await updateProfile({
+        id: userId as Id<"users">,
         name: editName.trim(),
         email: editEmail.trim(),
         ...(imageId ? { imageId } : {})
@@ -148,6 +152,19 @@ export function ProfileDialog({
       toast.error(error.message || "System error during update");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleForceSyncTimezone = async () => {
+    if (!userId) return;
+    setIsSyncingTz(true);
+    try {
+      await syncTimezone({ id: userId as Id<"users">, timezone: localTimezone });
+      toast.success("Timezone synced with network!");
+    } catch (e) {
+      toast.error("Failed to sync timezone.");
+    } finally {
+      setIsSyncingTz(false);
     }
   };
 
@@ -181,14 +198,14 @@ export function ProfileDialog({
 
   const handleExportData = () => {
     const dataToExport = {
-      user: { name: user.name, email: user.email, joined: user.createdAt, preferences: prefs },
+      user: { name: user.name, email: user.email, joined: user.createdAt, timezone: user.timezone, preferences: prefs },
       statistics: stats,
     };
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `goaltracker_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `zielio_export_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -228,8 +245,8 @@ export function ProfileDialog({
       onClick={() => setActiveTab(id)}
       className={cn(
         "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-        activeTab === id 
-          ? "bg-primary/10 text-primary" 
+        activeTab === id
+          ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
       )}
     >
@@ -240,12 +257,18 @@ export function ProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl h-[80vh] p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-3xl border-white/10 shadow-[0_0_100px_rgba(0,100,255,0.15)] ring-1 ring-white/5 z-[99999]">
+      <DialogContent className="w-[95vw] sm:max-w-5xl h-[90vh] md:h-[82vh] p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-3xl border-white/10 shadow-[0_0_100px_rgba(0,100,255,0.15)] ring-1 ring-white/5 z-[99999]">
         
+        {/*  Screen Reader Only Title and Description to satisfy Radix UI */}
+        <DialogTitle className="sr-only">Profile Configuration</DialogTitle>
+        <DialogDescription className="sr-only">
+          Manage your user profile, system preferences, and security settings.
+        </DialogDescription>
+
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40 shrink-0">
           <div className="flex items-center gap-2 text-muted-foreground font-mono text-xs truncate">
             <Terminal className="w-4 h-4 text-primary shrink-0" />
-            <span>sys@goaltracker:~/profile_center$</span>
+            <span className="hidden md:block">sys@zielio:~/profile_center$</span>
           </div>
           <div className="flex gap-2 shrink-0 mr-10">
             <div className="w-3 h-3 rounded-full bg-red-500/80" />
@@ -255,9 +278,9 @@ export function ProfileDialog({
         </div>
 
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row relative">
-          
+
           <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-white/5 bg-secondary/10 flex flex-col shrink-0">
-            <div className="p-6 flex flex-col items-center justify-center text-center relative border-b border-white/5">
+            <div className="px-6 md:p-6 flex flex-col items-center justify-center text-center relative border-b border-white/5">
               <div className="relative group mb-4">
                 <div className="relative w-24 h-24 rounded-full border-2 border-white/10 overflow-hidden bg-background flex items-center justify-center z-10 shadow-xl">
                   {previewUrl ? (
@@ -278,16 +301,16 @@ export function ProfileDialog({
               <p className="text-xs text-muted-foreground truncate w-full flex items-center justify-center gap-1.5 mt-1">
                 <Mail className="w-3 h-3 shrink-0" /> <span className="truncate">{user.email}</span>
               </p>
-              
-              <div className="mt-5 flex flex-col items-center justify-center gap-2 ">
-                 <div className="flex items-center gap-2 text-xs font-mono bg-black/40 px-3 py-2 rounded-lg border border-white/5 w-full justify-center hover:bg-black/60 transition-colors">
-                    <Activity className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span className="text-muted-foreground">Uptime:</span> <span className="text-foreground font-bold">{stats.currentStreak} Days</span>
-                 </div>
-                 <div className="flex items-center gap-2 text-xs font-mono bg-black/40 px-3 py-2 rounded-lg border border-white/5 w-full justify-center hover:bg-black/60 transition-colors">
-                    <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span className="text-muted-foreground">Since:</span> <span className="text-foreground font-bold">{joinDate}</span>
-                 </div>
+
+              <div className="mt-5 flex md:flex-col items-center justify-center gap-2 ">
+                <div className="flex items-center gap-2 text-xs font-mono bg-black/40 px-3 py-2 rounded-lg border border-white/5 w-full justify-center hover:bg-black/60 transition-colors">
+                  <Activity className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="text-muted-foreground">Uptime:</span> <span className="text-foreground font-bold">{stats.currentStreak} Days</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono bg-black/40 px-3 py-2 rounded-lg border border-white/5 w-full justify-center hover:bg-black/60 transition-colors">
+                  <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="text-muted-foreground">Since:</span> <span className="text-foreground font-bold">{joinDate}</span>
+                </div>
               </div>
             </div>
 
@@ -298,17 +321,17 @@ export function ProfileDialog({
             </div>
           </div>
 
-          <div className="flex-1 bg-background flex flex-col min-h-0 relative overflow-y-auto custom-scrollbar p-6">
+          <div className="flex-1 bg-background flex flex-col min-h-0 relative overflow-y-auto custom-scrollbar mt-2 md:mt-0 px-6 pb-5">
             <AnimatePresence mode="wait">
-              
+
               {/* TAB 1: PROFILE & IDENTITY */}
               {activeTab === "profile" && (
                 <motion.div key="profile" variants={fadeVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
                   <div>
                     <h3 className="text-xl font-bold mb-1">Profile Configuration</h3>
-                    <p className="text-sm text-muted-foreground">Manage your public identity and contact details.</p>
+                    <p className="text-sm text-muted-foreground">Manage your public identity and regional settings.</p>
                   </div>
-                  
+
                   <div className="space-y-5">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground font-mono">AVATAR</Label>
@@ -336,7 +359,25 @@ export function ProfileDialog({
                         <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="bg-secondary/20 border-white/10 h-11" placeholder="Enter email address" />
                       </div>
                     </div>
-                    
+
+                    {/* Timezone Configuration */}
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-xs text-muted-foreground font-mono">REGIONAL TIMEZONE</Label>
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/20 border border-white/5">
+                        <div className="flex items-center gap-3">
+                          <Globe className="w-5 h-5 text-blue-400" />
+                          <div>
+                            <p className="text-sm font-medium">{localTimezone}</p>
+                            <p className="text-[10px] md:text-xs text-muted-foreground">Used for daily CRON jobs and notifications.</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleForceSyncTimezone} disabled={isSyncingTz} className="bg-black/40 border-white/10">
+                          {isSyncingTz ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                          Force Sync
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="pt-4 border-t border-white/5">
                       <Button onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto min-w-[150px] bg-primary text-primary-foreground font-bold shadow-[0_0_20px_rgba(0,212,255,0.2)]">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
@@ -357,7 +398,7 @@ export function ProfileDialog({
 
                   <div className="space-y-6">
                     {/* Master Push Toggle */}
-                    <div className="p-5 rounded-xl bg-secondary/10 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="p-5 rounded-xl bg-secondary/10 border border-white/5 flex items-center justify-between gap-4">
                       <div>
                         <h4 className="text-sm font-bold flex items-center gap-2">
                           <Bell className="w-4 h-4 text-blue-400" /> Push Notifications
@@ -366,8 +407,8 @@ export function ProfileDialog({
                           Allow Zielio to send alerts directly to this device, even when the app is closed.
                         </p>
                       </div>
-                      <Switch 
-                        checked={prefs.pushNotifications} 
+                      <Switch
+                        checked={prefs.pushNotifications}
                         onCheckedChange={handleMasterPushToggle}
                         disabled={pushLoading || !isSupported}
                       />
@@ -376,15 +417,15 @@ export function ProfileDialog({
                     {/* Sub-Notification Toggles (Only enabled if Master is true) */}
                     <div className={cn("space-y-4 transition-opacity", !prefs.pushNotifications && "opacity-50 pointer-events-none")}>
                       <Label className="text-xs text-muted-foreground font-mono pl-1">NOTIFICATION CATEGORIES</Label>
-                      
+
                       <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-white/5">
                         <div>
                           <p className="text-sm font-medium">Task Reminders</p>
                           <p className="text-xs text-muted-foreground">Alerts for tasks due today or upcoming targets.</p>
                         </div>
-                        <Switch 
-                          checked={prefs.taskReminders} 
-                          onCheckedChange={(c) => setPrefs({ ...prefs, taskReminders: c })} 
+                        <Switch
+                          checked={prefs.taskReminders}
+                          onCheckedChange={(c) => setPrefs({ ...prefs, taskReminders: c })}
                         />
                       </div>
 
@@ -393,9 +434,9 @@ export function ProfileDialog({
                           <p className="text-sm font-medium">Streak Savers</p>
                           <p className="text-xs text-muted-foreground">Late day reminders if you haven't completed a task.</p>
                         </div>
-                        <Switch 
-                          checked={prefs.streakReminders} 
-                          onCheckedChange={(c) => setPrefs({ ...prefs, streakReminders: c })} 
+                        <Switch
+                          checked={prefs.streakReminders}
+                          onCheckedChange={(c) => setPrefs({ ...prefs, streakReminders: c })}
                         />
                       </div>
 
@@ -404,9 +445,9 @@ export function ProfileDialog({
                           <p className="text-sm font-medium">AI Quota Alerts</p>
                           <p className="text-xs text-muted-foreground">Notify me when my daily 8/8 AI limit resets.</p>
                         </div>
-                        <Switch 
-                          checked={prefs.aiQuotaAlerts} 
-                          onCheckedChange={(c) => setPrefs({ ...prefs, aiQuotaAlerts: c })} 
+                        <Switch
+                          checked={prefs.aiQuotaAlerts}
+                          onCheckedChange={(c) => setPrefs({ ...prefs, aiQuotaAlerts: c })}
                         />
                       </div>
                     </div>
@@ -422,9 +463,9 @@ export function ProfileDialog({
                             Allow AI to analyze images, suggest goal breakdowns, and provide analytics insights.
                           </p>
                         </div>
-                        <Switch 
-                          checked={prefs.enableAiFeatures} 
-                          onCheckedChange={(c) => setPrefs({ ...prefs, enableAiFeatures: c })} 
+                        <Switch
+                          checked={prefs.enableAiFeatures}
+                          onCheckedChange={(c) => setPrefs({ ...prefs, enableAiFeatures: c })}
                         />
                       </div>
                     </div>
@@ -474,27 +515,27 @@ export function ProfileDialog({
                       </div>
 
                       {!otpSent ? (
-                         <Button variant="destructive" className="w-fit" onClick={handleInitiateDelete} disabled={isSendingOtp}>
-                           {isSendingOtp ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                           {isSendingOtp ? "Generating..." : "Initiate Account Deletion"}
-                         </Button>
+                        <Button variant="destructive" className="w-fit" onClick={handleInitiateDelete} disabled={isSendingOtp}>
+                          {isSendingOtp ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          {isSendingOtp ? "Generating..." : "Initiate Account Deletion"}
+                        </Button>
                       ) : (
-                         <div className="space-y-3 pt-2">
-                           <Label className="text-xs font-mono text-red-400">AUTHORIZATION REQUIRED</Label>
-                           <div className="flex gap-2">
-                             <Input 
-                               value={deleteOTP} 
-                               onChange={(e) => setDeleteOTP(e.target.value)} 
-                               placeholder="Enter 6-digit OTP" 
-                               className="w-40 bg-black/40 border-red-500/30 text-red-400 focus-visible:ring-red-500/50 placeholder:text-red-900" 
-                               maxLength={6}
-                             />
-                             <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
-                               {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Delete"}
-                             </Button>
-                           </div>
-                           <p className="text-[10px] text-muted-foreground">We sent a verification code to your email.</p>
-                         </div>
+                        <div className="space-y-3 pt-2">
+                          <Label className="text-xs font-mono text-red-400">AUTHORIZATION REQUIRED</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={deleteOTP}
+                              onChange={(e) => setDeleteOTP(e.target.value)}
+                              placeholder="Enter 6-digit OTP"
+                              className="w-40 bg-black/40 border-red-500/30 text-red-400 focus-visible:ring-red-500/50 placeholder:text-red-900"
+                              maxLength={6}
+                            />
+                            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Delete"}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">We sent a verification code to your email.</p>
+                        </div>
                       )}
                     </div>
                   </div>
