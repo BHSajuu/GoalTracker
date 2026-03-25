@@ -101,9 +101,9 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
-  
+
   const isRateLimited = usage !== undefined && usage >= 8;
-  
+
   const { withAIGate, AIGateDialog } = useAIGate();
 
   const handleRemove = async () => {
@@ -173,7 +173,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       window.dispatchEvent(new Event("show-rate-limit-dialog"));
       return;
     }
-    
+
     setIsViewOpen(false);
     setLightboxIndex(null);
     setReturnToViewOnClose(false);
@@ -187,7 +187,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
     try {
       const base64 = await getBase64Image(url);
-      const rawResult = await analyzeImage({userId: note.userId, imageBase64: base64 });
+      const rawResult = await analyzeImage({ userId: note.userId, imageBase64: base64 });
 
       const processedResult = formatMarkdownDisplay(rawResult || "No analysis generated.");
       setEditableAnalysis(processedResult);
@@ -340,7 +340,6 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                       onClick={(e) => { e.stopPropagation(); withAIGate(() => handleAnalyze(url)); }} title="Analyze with Llama Vision">
                       <ScanEye className="w-3.5 h-3.5 text-blue-300 group-hover/img:text-white" />
                     </Button>
-                    <AIGateDialog />
                   </div>
                   {!!note.analysis?.[url] && (
                     <div className="absolute bottom-2 right-2 p-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md shadow-lg" title="Has AI Analysis">
@@ -504,7 +503,6 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                 {!!note.analysis?.[imagesToDisplay[lightboxIndex]] ? "Re-Analyze Image" : "Analyze with Vision"}
               </span>
             </button>
-             <AIGateDialog />
             {imagesToDisplay.length > 1 && (
               <>
                 <button
@@ -611,6 +609,9 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* RENDER ONCE AT THE ROOT */}
+      <AIGateDialog />
     </>
   );
 }

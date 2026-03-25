@@ -4,13 +4,14 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { createAuthSession, getAuthSession, destroyAuthSession } from "@/app/actions/auth";
 
 interface AuthContextType {
   userId: Id<"users"> | null;
   userEmail: string | null;
   isLoading: boolean;
-  login: (userId: Id<"users">, email: string) => void;
-  logout: () => void;
+  login: (userId: Id<"users">, email: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,32 +25,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncTimezone = useMutation(api.users.syncTimezone);
 
   useEffect(() => {
-    // Check for existing session
-    const storedUserId = localStorage.getItem("Zielio_user_id");
-    const storedEmail = localStorage.getItem("Zielio_user_email");
-
-    if (storedUserId && storedEmail) {
-      setUserId(storedUserId as Id<"users">);
-      setUserEmail(storedEmail);
-
-      // Sync timezone when user loads
+    // Check for existing session via HTTP-Only Cookie
+    const initAuth = async () => {
       try {
-        const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        syncTimezone({ id: storedUserId as Id<"users">, timezone: clientTimezone }).catch(console.error);
+        const session = await getAuthSession();
+
+        if (session && session.userId && session.email) {
+          setUserId(session.userId as Id<"users">);
+          setUserEmail(session.email);
+
+          // Sync timezone when user loads
+          const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          syncTimezone({ id: session.userId as Id<"users">, timezone: clientTimezone }).catch(console.error);
+        }
       } catch (error) {
-        console.error("Failed to sync timezone:", error);
+        console.error("Failed to load secure session:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initAuth();
   }, [syncTimezone]);
 
-  const login = (newUserId: Id<"users">, email: string) => {
+  const login = async (newUserId: Id<"users">, email: string) => {
+    // 1. Set React State immediately for snappy UI
     setUserId(newUserId);
     setUserEmail(email);
-    localStorage.setItem("Zielio_user_id", newUserId);
-    localStorage.setItem("Zielio_user_email", email);
 
-    // Sync timezone on fresh login
+    // 2. Set Secure Server Cookie
+    await createAuthSession(newUserId, email);
+
+    // 3. Sync timezone on fresh login
     try {
       const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       syncTimezone({ id: newUserId, timezone: clientTimezone }).catch(console.error);
@@ -58,16 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    // 1. Clear Local Storage
-    localStorage.removeItem("Zielio_user_id");
-    localStorage.removeItem("Zielio_user_email");
-
-    // 2. Clear State
+  const logout = async () => {
+    // 1. Clear React State
     setUserId(null);
     setUserEmail(null);
 
-    // 3. Force Hard Redirect to Home (Most reliable method)
+    // 2. Destroy Secure Cookie
+    await destroyAuthSession();
+
+    // 3. Force Hard Redirect to Home 
     window.location.href = "/";
   };
 
