@@ -24,6 +24,7 @@ import Image from "next/image";
 
 import { ManualGoalForm, colorOptions } from "./manual-goal-form";
 import { AiGoalGenerator, AiPlan } from "./ai-goal-generator";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 interface UpsertGoalDialogProps {
   open: boolean;
@@ -74,6 +75,9 @@ export function UpsertGoalDialog({
   const usage = useQuery(api.rateLimit.getUsage, { userId });
   
   const isRateLimited = usage !== undefined && usage >= 8;
+  
+  const { withAIGate, AIGateDialog } = useAIGate();
+
 
   const methods = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema),
@@ -321,13 +325,16 @@ export function UpsertGoalDialog({
 
           {mode === "create" && activeTab === "ai" ? (
             !generatedPlan ? (
+              <>
               <Button
-                onClick={handleGeneratePlan}
+                onClick={() => withAIGate(handleGeneratePlan)}
                 disabled={isGenerating || !aiPrompt.trim()}
                 className={cn("text-white shadow-lg transition-all", aiMode === "fast" ? "bg-teal-600" : "bg-indigo-600")}
               >
                 {isGenerating ? "Building..." : (needsTimeframe ? "Confirm & Generate" : "Generate Plan")}
               </Button>
+              <AIGateDialog />
+              </>
             ) : (
               <Button
                 onClick={handleConfirmAiPlan}

@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { RichTextEditor } from "./rich-text-editor";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 
 interface UpsertNoteDialogProps {
@@ -91,6 +92,8 @@ export function UpsertNoteDialog({
   const usage = useQuery(api.rateLimit.getUsage, { userId });
   
   const isRateLimited = usage !== undefined && usage >= 8;
+  
+  const { withAIGate, AIGateDialog } = useAIGate();
 
   // Initialize state
   useEffect(() => {
@@ -763,11 +766,12 @@ export function UpsertNoteDialog({
                               </div>
                               <Button
                                 size="sm"
-                                onClick={handleAnalyzeImage}
+                                onClick={() =>withAIGate(handleAnalyzeImage)}
                                 className="bg-indigo-600 hover:bg-indigo-500 text-white"
                               >
                                 <Sparkles className="w-3 h-3 mr-2" /> Analyze
                               </Button>
+                              <AIGateDialog />
                             </motion.div>
                           )}
 

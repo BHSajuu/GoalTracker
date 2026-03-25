@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 export const colorOptions = [
   "#00d4ff", "#7c3aed", "#10b981", "#f8bd56",
@@ -28,6 +29,8 @@ export function ManualGoalForm({ userId }: ManualGoalFormProps) {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
   const [isSuggestingDesc, setIsSuggestingDesc] = useState(false);
   
+  const { withAIGate, AIGateDialog } = useAIGate();
+
   const currentTitle = watch("title");
   const currentColor = watch("color");
 
@@ -103,7 +106,7 @@ export function ManualGoalForm({ userId }: ManualGoalFormProps) {
 
           <button
             type="button"
-            onClick={handleSuggestDescription}
+            onClick={() => withAIGate(handleSuggestDescription)}
             disabled={isSuggestingDesc || !currentTitle?.trim()}
             className={cn(
               "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
@@ -129,6 +132,7 @@ export function ManualGoalForm({ userId }: ManualGoalFormProps) {
               {isSuggestingDesc ? "Synthesizing..." : "AI Auto-fill"}
             </div>
           </button>
+          <AIGateDialog />
         </div>
 
         <div className="relative rounded-md overflow-hidden group">

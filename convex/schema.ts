@@ -7,6 +7,7 @@ export default defineSchema({
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    timezone: v.optional(v.string()),
     preferences: v.optional(
       v.object({
         pushNotifications: v.boolean(),

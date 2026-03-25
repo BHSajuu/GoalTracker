@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 const AIMarkdownComponents = {
   h3: ({ node, ...props }: any) => (
@@ -68,6 +69,8 @@ export default function AnalyticsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  
+  const { withAIGate, AIGateDialog } = useAIGate();
 
   const usage = useQuery(api.rateLimit.getUsage, userId ? { userId } : "skip");
   const isRateLimited = usage !== undefined && usage >= 8;
@@ -158,13 +161,16 @@ export default function AnalyticsPage() {
         </div>
 
         {!insights && !isGenerating && (
-          <button
-            onClick={handleGenerateAIInsights}
+          <>
+           <button
+            onClick={() => withAIGate(handleGenerateAIInsights)}
             className="flex items-center bg-[#19183B] text-white rounded-3xl mr-3 px-4 py-1.5 gap-2 shadow-[0_0_25px_rgba(147,197,253,0.7)] hover:scale-95 hover:shadow-[0_0_15px_rgba(147,197,253,0.35)] transition-all duration-400"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             Ask AI for Insights
           </button>
+          <AIGateDialog />
+          </>
         )}
       </div>
 

@@ -55,6 +55,7 @@ export const updateProfile = mutation({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    timezone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -84,9 +85,24 @@ export const updateProfile = mutation({
       ...(updates.email !== undefined ? { email: updates.email } : {}),
       ...(updates.imageId !== undefined ? { imageId: updates.imageId } : {}),
       ...(imageUrl !== undefined ? { imageUrl } : {}),
+      ...(updates.timezone !== undefined ? { timezone: updates.timezone } : {}),
     });
 
     return true;
+  }
+});
+
+// mutation to silently sync user timezone when they open the app
+export const syncTimezone = mutation({
+  args: { id: v.id("users"), timezone: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id);
+    if (!user) return;
+    
+    // Only update if it has changed to save database writes
+    if (user.timezone !== args.timezone) {
+      await ctx.db.patch(args.id, { timezone: args.timezone });
+    }
   }
 });
 

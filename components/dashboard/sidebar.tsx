@@ -111,9 +111,6 @@ export function DashboardSidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* Render the Profile Dialog */}
-      <ProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
     </div>
   );
 
@@ -145,6 +142,9 @@ export function DashboardSidebar() {
           })}
         </div>
       </nav>
+
+      {/* Render the single Profile Dialog instance here at the root level */}
+      <ProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
     </>
   );
 }

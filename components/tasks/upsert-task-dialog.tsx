@@ -33,6 +33,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 interface UpsertTaskDialogProps {
   open: boolean;
@@ -84,6 +85,8 @@ export function UpsertTaskDialog({
   const usage = useQuery(api.rateLimit.getUsage, { userId });
   
   const isRateLimited = usage !== undefined && usage >= 8;
+   
+  const { withAIGate, AIGateDialog } = useAIGate();
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(getTaskSchema(mode)),
@@ -492,7 +495,7 @@ export function UpsertTaskDialog({
 
                 <button
                   type="button"
-                  onClick={handleSuggestDescription}
+                  onClick={() =>withAIGate(handleSuggestDescription)}
                   disabled={isSuggestingDesc || !currentTitle?.trim()}
                   className={cn(
                     "h-7 text-xs px-3 rounded-full transition-all duration-300 relative overflow-hidden group",
@@ -518,6 +521,7 @@ export function UpsertTaskDialog({
                     {isSuggestingDesc ? "Synthesizing..." : "AI Auto-fill"}
                   </div>
                 </button>
+                <AIGateDialog />
               </div>
 
               <div className="relative rounded-md overflow-hidden group">

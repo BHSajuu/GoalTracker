@@ -25,6 +25,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 interface ImageNoteCardProps {
   note: Doc<"notes"> & { imageUrls?: string[] };
@@ -102,6 +103,8 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
   
   const isRateLimited = usage !== undefined && usage >= 8;
+  
+  const { withAIGate, AIGateDialog } = useAIGate();
 
   const handleRemove = async () => {
     try {
@@ -334,9 +337,10 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                   </div>
                   <div className="absolute top-2 right-2 lg:opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
                     <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-black/50 hover:bg-blue-600/90 text-white border border-white/20 backdrop-blur-md shadow-lg"
-                      onClick={(e) => { e.stopPropagation(); handleAnalyze(url); }} title="Analyze with Llama Vision">
+                      onClick={(e) => { e.stopPropagation(); withAIGate(() => handleAnalyze(url)); }} title="Analyze with Llama Vision">
                       <ScanEye className="w-3.5 h-3.5 text-blue-300 group-hover/img:text-white" />
                     </Button>
+                    <AIGateDialog />
                   </div>
                   {!!note.analysis?.[url] && (
                     <div className="absolute bottom-2 right-2 p-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md shadow-lg" title="Has AI Analysis">
@@ -470,7 +474,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       {/* PORTALED FULL SCREEN LIGHTBOX */}
       {lightboxIndex !== null && mounted && createPortal(
         <div
-          className="fixed inset-0 z-[100000] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center pointer-events-auto"
+          className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center pointer-events-auto"
           onClick={closeLightbox}
         >
           <button
@@ -492,7 +496,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
 
             <button onClick={(e) => {
               e.stopPropagation();
-              handleAnalyze(imagesToDisplay[lightboxIndex]);
+              withAIGate(() => handleAnalyze(imagesToDisplay[lightboxIndex]));
             }}
               className="absolute bottom-6 md:bottom-10 right-4 md:right-10 px-4 py-2 md:px-5 md:py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-[100001]">
               <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
@@ -500,7 +504,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
                 {!!note.analysis?.[imagesToDisplay[lightboxIndex]] ? "Re-Analyze Image" : "Analyze with Vision"}
               </span>
             </button>
-
+             <AIGateDialog />
             {imagesToDisplay.length > 1 && (
               <>
                 <button

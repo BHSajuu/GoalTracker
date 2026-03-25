@@ -77,7 +77,12 @@ export function ProfileDialog({
       setEditName(user.name || "");
       setEditEmail(user.email || "");
       setPreviewUrl(user.imageUrl || null);
-      setActiveTab("profile");
+      
+      // Only set to profile if it wasn't opened via the AI gate event
+      if (activeTab !== "preferences") {
+        setActiveTab("profile");
+      }
+      
       setOtpSent(false);
       setDeleteOTP("");
       
@@ -87,6 +92,19 @@ export function ProfileDialog({
       }
     }
   }, [user, open]);
+
+  // Listener for the AI Gate trigger
+  useEffect(() => {
+    const handleOpenProfileFromAIGate = () => {
+      onOpenChange(true);          // Open the dialog
+      setActiveTab("preferences"); // Jump straight to preferences tab
+    };
+
+    window.addEventListener("open-profile-dialog", handleOpenProfileFromAIGate);
+    return () => {
+      window.removeEventListener("open-profile-dialog", handleOpenProfileFromAIGate);
+    };
+  }, [onOpenChange]);
 
   if (!user || stats === undefined) return null;
 
@@ -222,7 +240,7 @@ export function ProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl h-[80vh] p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-3xl border-white/10 shadow-[0_0_100px_rgba(0,100,255,0.15)] ring-1 ring-white/5">
+      <DialogContent className="w-[95vw] sm:max-w-5xl h-[80vh] p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-3xl border-white/10 shadow-[0_0_100px_rgba(0,100,255,0.15)] ring-1 ring-white/5 z-[99999]">
         
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40 shrink-0">
           <div className="flex items-center gap-2 text-muted-foreground font-mono text-xs truncate">

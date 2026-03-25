@@ -1,13 +1,35 @@
 /**
  * This file queries your database to figure out 
- * who needs a notification based on the preferences
+ * who needs a notification based on the preferences and local timezone
  */
 
 import { internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+// Helper function to calculate if it's the target hour in the user's local timezone
+function isTargetLocalHour(timezone: string | undefined, targetHour: number): boolean {
+  const tz = timezone || "UTC"; // Fallback to UTC if timezone is missing
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: false,
+    });
+    
+    let currentLocalHour = parseInt(formatter.format(new Date()), 10);
+    // Standardize midnight (some environments output 24 instead of 0)
+    if (currentLocalHour === 24) currentLocalHour = 0; 
+    
+    return currentLocalHour === targetHour;
+  } catch (e) {
+    // If timezone string is somehow invalid, fallback to checking UTC time
+    console.warn(`Invalid timezone ${tz}, falling back to UTC`);
+    const utcHour = new Date().getUTCHours();
+    return utcHour === targetHour;
+  }
+}
 
-// 1. TASK REMINDERS (Morning)
+// 1. TASK REMINDERS (Morning - 9 AM Local)
 export const getTaskReminderTargets = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -19,13 +41,15 @@ export const getTaskReminderTargets = internalQuery({
     const next24Hours = now + 24 * 60 * 60 * 1000;
 
     for (const user of allUsers) {
+      // ONLY process this user if it is currently 9 AM in their timezone
+      if (!isTargetLocalHour(user.timezone, 9)) continue;
+
       if (user.preferences?.pushNotifications && user.preferences?.taskReminders) {
         const tasks = await ctx.db
           .query("tasks")
           .withIndex("by_user", (q) => q.eq("userId", user._id))
           .collect();
 
-        // Find tasks that are pending and due before this time tomorrow
         const pendingAgenda = tasks.filter((t) =>
           !t.completed && !t.isArchived && t.dueDate && t.dueDate <= next24Hours
         );
@@ -45,7 +69,6 @@ export const getTaskReminderTargets = internalQuery({
 
 export const processTaskReminders = internalAction({
   args: {},
-
   handler: async (ctx): Promise<{ status: string; usersFound: number; notificationsFired: number }> => {
     const targets = await ctx.runQuery(internal.notifications.getTaskReminderTargets);
 
@@ -62,16 +85,12 @@ export const processTaskReminders = internalAction({
       }
     }
 
-    return {
-      status: "Success",
-      usersFound: targets.length,
-      notificationsFired: sentCount
-    };
+    return { status: "Success", usersFound: targets.length, notificationsFired: sentCount };
   },
 });
 
 
-// 2. STREAK SAVERS (Evening)
+// 2. STREAK SAVERS (Evening - 8 PM / 20:00 Local)
 export const getStreakSaverTargets = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -83,6 +102,9 @@ export const getStreakSaverTargets = internalQuery({
     const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
 
     for (const user of allUsers) {
+      // ONLY process this user if it is currently 8 PM in their timezone
+      if (!isTargetLocalHour(user.timezone, 20)) continue;
+
       if (user.preferences?.pushNotifications && user.preferences?.streakReminders) {
         const tasks = await ctx.db
           .query("tasks")
@@ -108,7 +130,6 @@ export const getStreakSaverTargets = internalQuery({
 
 export const processStreakSavers = internalAction({
   args: {},
-
   handler: async (ctx): Promise<{ status: string; usersFound: number; notificationsFired: number }> => {
     const targets = await ctx.runQuery(internal.notifications.getStreakSaverTargets);
 
@@ -125,15 +146,11 @@ export const processStreakSavers = internalAction({
       }
     }
 
-    return {
-      status: "Success",
-      usersFound: targets.length,
-      notificationsFired: sentCount
-    };
+    return { status: "Success", usersFound: targets.length, notificationsFired: sentCount };
   },
 });
 
-// 3. AI QUOTA RESET (Morning)
+// 3. AI QUOTA RESET (Morning - 8 AM Local)
 export const getAiQuotaResetTargets = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -147,6 +164,9 @@ export const getAiQuotaResetTargets = internalQuery({
     const yesterdayString = `${yesterday.getUTCFullYear()}-${String(yesterday.getUTCMonth() + 1).padStart(2, '0')}-${String(yesterday.getUTCDate()).padStart(2, '0')}`;
 
     for (const user of allUsers) {
+      // ONLY process this user if it is currently 8 AM in their timezone
+      if (!isTargetLocalHour(user.timezone, 8)) continue;
+
       if (user.preferences?.pushNotifications && user.preferences?.aiQuotaAlerts && user.preferences?.enableAiFeatures) {
 
         // Did they hit the limit of 8 yesterday?
@@ -170,7 +190,6 @@ export const getAiQuotaResetTargets = internalQuery({
 
 export const processAiQuotaResets = internalAction({
   args: {},
-
   handler: async (ctx): Promise<{ status: string; usersFound: number; notificationsFired: number }> => {
     const targets = await ctx.runQuery(internal.notifications.getAiQuotaResetTargets);
 
@@ -187,10 +206,6 @@ export const processAiQuotaResets = internalAction({
       }
     }
 
-    return {
-      status: "Success",
-      usersFound: targets.length,
-      notificationsFired: sentCount
-    };
+    return { status: "Success", usersFound: targets.length, notificationsFired: sentCount };
   },
 });

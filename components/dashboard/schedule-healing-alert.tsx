@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 export function ScheduleHealingAlert() {
   const { userId } = useAuth();
@@ -24,6 +25,8 @@ export function ScheduleHealingAlert() {
   const [isDismissed, setIsDismissed] = useState(false);
   const [statusText, setStatusText] = useState("Initializing AI Agent...");
  
+  const { withAIGate, AIGateDialog } = useAIGate();
+
   if (!userId) return null;
    
   const usage = useQuery(api.rateLimit.getUsage, { userId });
@@ -151,7 +154,7 @@ export function ScheduleHealingAlert() {
 
                   {/* Action Button */}
                   <Button
-                    onClick={handleFix}
+                    onClick={() => withAIGate(handleFix)}
                     disabled={isHealing}
                     size="lg"
                     className="group relative w-full overflow-hidden bg-foreground text-background hover:bg-foreground/90 sm:w-auto font-medium transition-all"
@@ -162,6 +165,7 @@ export function ScheduleHealingAlert() {
                       Fix My Schedule
                     </div>
                   </Button>
+                  <AIGateDialog />
                 </motion.div>
               ) : (
                 // HIGHLY ANIMATED AI REBALANCING STATE

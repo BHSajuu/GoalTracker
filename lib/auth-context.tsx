@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Id } from "@/convex/_generated/dataModel";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 interface AuthContextType {
   userId: Id<"users"> | null;
@@ -18,6 +20,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Mutation to sync the timezone
+  const syncTimezone = useMutation(api.users.syncTimezone);
+
   useEffect(() => {
     // Check for existing session
     const storedUserId = localStorage.getItem("Zielio_user_id");
@@ -26,15 +31,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedUserId && storedEmail) {
       setUserId(storedUserId as Id<"users">);
       setUserEmail(storedEmail);
+
+      // Sync timezone when user loads
+      try {
+        const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        syncTimezone({ id: storedUserId as Id<"users">, timezone: clientTimezone }).catch(console.error);
+      } catch (error) {
+        console.error("Failed to sync timezone:", error);
+      }
     }
     setIsLoading(false);
-  }, []);
+  }, [syncTimezone]);
 
   const login = (newUserId: Id<"users">, email: string) => {
     setUserId(newUserId);
     setUserEmail(email);
     localStorage.setItem("Zielio_user_id", newUserId);
     localStorage.setItem("Zielio_user_email", email);
+
+    // Sync timezone on fresh login
+    try {
+      const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      syncTimezone({ id: newUserId, timezone: clientTimezone }).catch(console.error);
+    } catch (error) {
+      console.error("Failed to sync timezone:", error);
+    }
   };
 
   const logout = () => {
