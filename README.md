@@ -39,6 +39,15 @@ Built with a modern, real-time stack (**Next.js 16 + Convex**), Zielio leverages
 * **👁️ AI Image Analysis**
     * Upload a screenshot of a diagram, textbook page, or complex code block, and use the built-in AI Image Analysis feature to extract text, summarize concepts, or explain the visual data directly into your notes.
 
+### 📝 The Knowledge Base & Collaboration
+* **📂 Multi-Modal Notes System**
+    * A robust notes system powered by Convex File Storage. Attach dedicated Code Snippets (with syntax highlighting), Image galleries, and Link collections (with YouTube video previews) directly to your goals.
+* **🔗 Secure Note Sharing & Cloning**
+    * Generate secure, public read-only links for any note, or send them directly to colleagues via beautifully styled, automated Zielio emails.
+    * **Save to Workspace:** Authenticated visitors can instantly clone shared notes directly into their own Zielio goals with a single click.
+* **🏷️ Interactive Inline Image Tagging**
+    * Write context-rich text notes using our custom TipTap editor. Use the "Tag Image" extension to drop interactive pills (e.g., `📸 Image 1`) directly inline with your text. Clicking these tags instantly opens the referenced image in a full-screen lightbox.
+
 ### ⏱️ The Productivity Engine
 * **📅 Plan My Day Algorithm**
     * Overwhelmed by a long list? Our smart algorithm analyzes your pending tasks, deadlines, and available hours to curate the perfect daily schedule for you.
@@ -46,14 +55,14 @@ Built with a modern, real-time stack (**Next.js 16 + Convex**), Zielio leverages
     * Not just a basic countdown. The Focus Timer locks you into a specific task, tracks your exact active session time, and directly feeds this data back into the database to power your efficiency metrics.
 * **🔮 Predictive Analytics (The Estimation Multiplier)**
     * Stop guessing how long tasks take. The system algorithmically analyzes your past Focus Timer sessions (comparing your Estimated vs. Actual time) to calculate a personal "Estimation Multiplier". It uses this historical data to predict how long your future tasks will actually take based on your real-world pacing.
-* **🔥 Streak & Activity Tracking**
-    * Stay motivated with a visual, GitHub-style contribution calendar tracking your daily task completions and focus streaks.
+* **🔔 Web Push Notifications**
+    * Stay accountable with OS-level push notifications for task reminders, streak savers, and AI quota alerts, even when the browser is closed.
 
-### 📊 Data & Knowledge Base
+### 📊 Data & Security
 * **📈 Visual Analytics Dashboard**
     * See your efficiency trends, completion rates, and focus distribution in real-time with beautiful interactive charts built with Recharts.
-* **📝 Multi-Modal Notes & Filebase System**
-    * A robust notes system powered by Convex File Storage. Beyond text, attach dedicated Code Snippets (with syntax highlighting), Image galleries, and Link collections directly to your goals.
+* **🔒 Privacy-First Data Vault**
+    * Export your entire productivity history as a JSON file anytime. Secure, OTP-verified account deletion with complete database hygiene (cascade-deleting all associated tasks, goals, images, and notes).
 
 ---
 
@@ -65,13 +74,14 @@ Built with a modern, real-time stack (**Next.js 16 + Convex**), Zielio leverages
 * **Styling:** [Tailwind CSS](https://tailwindcss.com/) v4
 * **UI Components:** [Shadcn UI](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/) & [Lucide React](https://lucide.dev/)
 * **Animations:** Framer Motion & Tailwind Animate
-* **Editor & Syntax:** Tiptap & React Syntax Highlighter
+* **Rich Text Editor:** Tiptap (with Custom Extensions) & React Syntax Highlighter
 
 **Backend & Data:**
 * **Database & Real-time:** [Convex](https://convex.dev/) (Reactive backend & File Storage)
 * **AI Integration:** NVIDIA API 
 * **Authentication:** Custom OTP Authentication (Nodemailer + Input-OTP)
 * **Data Validation:** Zod + React Hook Form
+* **Notifications:** Web Push API via Service Workers
 
 ---
 
@@ -82,7 +92,7 @@ Follow these steps to set up the project locally on your machine.
 ### Prerequisites
 
 * Node.js (v18 or higher)
-* npm or bun
+* npm
 
 ### Installation
 
@@ -95,18 +105,18 @@ Follow these steps to set up the project locally on your machine.
 2.  **Install dependencies**
     ```bash
     npm install
-    # or
-    bun install
     ```
 
 3.  **Environment Setup**
-    Create a `.env.local` file in the root directory and add your Convex deployment URL and AI API keys:
+    Create a `.env.local` file in the root directory and add your Convex deployment URL, AI API keys, and Email credentials:
     ```env
     # .env.local
     CONVEX_DEPLOYMENT=your_convex_deployment_url
     NEXT_PUBLIC_CONVEX_URL=your_public_convex_url
     NVIDIA_MISTRAL_API_KEY=your_nvidia_or_openai_api_key
-    ...others
+    SMTP_USER=your_email_address
+    SMTP_PASS=your_app_password
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
     ```
 
 4.  **Start the Backend**
@@ -127,7 +137,8 @@ Follow these steps to set up the project locally on your machine.
 ---
 
 ## 📁 Project Structure highlights
-* `/app`: Next.js App Router pages (Dashboard, Analytics, Tasks, Notes).
-* `/components`: Reusable UI components, heavily modularized (e.g., separate files for AI Generators vs Manual Forms).
-* `/convex`: Backend logic, database schemas, server actions (AI integrations), and mutations.
+* `/app`: Next.js App Router pages (Dashboard, Analytics, Tasks, Notes, Share Routes).
+* `/components`: Reusable UI components, heavily modularized (e.g., specialized note cards, AI generators, interactive dialogs).
+* `/convex`: Backend logic, database schemas, server actions (AI integrations, Email sending), and complex mutations.
 * `/lib`: Utility functions and context providers.
+* `/hooks`: Custom React hooks (e.g., `usePushNotifications`, `useAIGate`).

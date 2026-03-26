@@ -195,18 +195,17 @@ const MenuBar = ({ editor, imageCount }: { editor: any, imageCount?: number }) =
       {imageCount !== undefined && imageCount > 0 && (
         <div className="flex items-center gap-1 pl-1">
           <select
-            className="h-8 bg-emerald-500/10 text-emerald-400 text-xs font-bold tracking-wider uppercase border border-emerald-500/20 hover:bg-emerald-500/20 rounded-md px-2 focus:outline-none transition-all cursor-pointer"
+            className="h-8 bg-emerald-500/10 text-emerald-400 text-xs font-bold tracking-wider border border-emerald-500/20 hover:bg-emerald-500/20 rounded-md px-2  focus:outline-none transition-all cursor-pointer"
             value=""
             onChange={(e) => {
               if (e.target.value) {
-                // @ts-ignore
                 editor.chain().focus().insertImageTag({ index: parseInt(e.target.value) }).run();
               }
             }}
           >
             <option value="" disabled className="bg-background text-foreground">📸 Tag Image...</option>
             {Array.from({ length: imageCount }).map((_, i) => (
-              <option key={i} value={i + 1} className="bg-background text-foreground">Tag Image {i + 1}</option>
+              <option key={i} value={i + 1} className="bg-background text-foreground ">Tag Image {i + 1}</option>
             ))}
           </select>
         </div>

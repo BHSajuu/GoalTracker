@@ -144,7 +144,7 @@ export const remove = mutation({
     if (!goal) throw new Error("Goal not found");
     if (goal.userId !== args.userId) throw new Error("Unauthorized to delete this goal");
 
-    //  Clean up Tasks and their associated Focus Sessions
+    // Clean up Tasks and their associated Focus Sessions
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
@@ -165,7 +165,7 @@ export const remove = mutation({
       await ctx.db.delete(task._id);
     }
 
-    // Clean up Notes and their associated Storage Files
+    //  Clean up Notes and their associated Storage Files
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_goal", (q) => q.eq("goalId", args.id))
@@ -188,6 +188,16 @@ export const remove = mutation({
       }
       // Delete the note itself
       await ctx.db.delete(note._id);
+    }
+
+    // Clean up Note Files (Folders) associated with this goal
+    const noteFiles = await ctx.db
+      .query("noteFiles")
+      .withIndex("by_goal", (q) => q.eq("goalId", args.id))
+      .collect();
+      
+    for (const file of noteFiles) {
+      await ctx.db.delete(file._id);
     }
 
     // Finally, delete the goal

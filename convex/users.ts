@@ -147,8 +147,8 @@ export const confirmAccountDeletion = mutation({
 
     await ctx.db.patch(otpRecord._id, { used: true });
 
-    // Cascade Delete User Data
-    const collections = ["tasks", "goals", "notes", "focusSessions"] as const;
+    // Cascade Delete User Data (Added "noteFiles" to the array)
+    const collections = ["tasks", "goals", "notes", "noteFiles", "focusSessions"] as const;
     for (const collection of collections) {
       const records = await ctx.db.query(collection).withIndex("by_user", q => q.eq("userId", args.userId)).collect();
       for (const record of records) {
