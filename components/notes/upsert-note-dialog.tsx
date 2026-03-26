@@ -55,7 +55,7 @@ export function UpsertNoteDialog({
   mode,
   initialData,
 }: UpsertNoteDialogProps) {
-  
+
   // Required for Client-Side Portal rendering in Next.js
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -90,9 +90,9 @@ export function UpsertNoteDialog({
   const updateNote = useMutation(api.notes.update);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId });
-  
+
   const isRateLimited = usage !== undefined && usage >= 8;
-  
+
   const { withAIGate, AIGateDialog } = useAIGate();
 
   // Initialize state
@@ -276,7 +276,7 @@ export function UpsertNoteDialog({
   const checkTabContent = (tabId: string) => {
     if (tabId === "text") return text.trim() !== "" && text !== "<p></p>";
     if (tabId === "code") return codeSnippet.trim() !== "";
-    if (tabId === "link") return links.some(l => l.trim() !== ""); 
+    if (tabId === "link") return links.some(l => l.trim() !== "");
     if (tabId === "image") return selectedFiles.length > 0 || existingImageUrls.length > 0;
     return false;
   };
@@ -367,7 +367,7 @@ export function UpsertNoteDialog({
         images: finalImages,
         language: payloadLanguage,
         code: payloadCode,
-        links: payloadLinks, 
+        links: payloadLinks,
       };
 
       if (hasImages) {
@@ -616,6 +616,7 @@ export function UpsertNoteDialog({
                           <RichTextEditor
                             content={text}
                             onChange={(newContent) => setText(newContent)}
+                            imageCount={existingImageUrls.length + previewUrls.length}
                           />
                         </motion.div>
                       )}
@@ -766,7 +767,7 @@ export function UpsertNoteDialog({
                               </div>
                               <Button
                                 size="sm"
-                                onClick={() =>withAIGate(handleAnalyzeImage)}
+                                onClick={() => withAIGate(handleAnalyzeImage)}
                                 className="bg-indigo-600 hover:bg-indigo-500 text-white"
                               >
                                 <Sparkles className="w-3 h-3 mr-2" /> Analyze

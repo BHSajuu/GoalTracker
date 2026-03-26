@@ -175,3 +175,94 @@ export const saveImageAnalysis = mutation({
     return true;
   },
 });
+
+// SHARING FEATURES BELOW
+export const createShareToken = mutation({
+  args: {
+    id: v.id("notes"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.id);
+    if (!note) throw new Error("Note not found");
+    if (note.userId !== args.userId) throw new Error("Unauthorized to share this note");
+
+    if (note.shareToken) return note.shareToken;
+
+    // Generate a secure, unique token
+    const shareToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    await ctx.db.patch(args.id, { shareToken });
+    return shareToken;
+  }
+});
+
+export const getByShareToken = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const note = await ctx.db
+      .query("notes")
+      .withIndex("by_share_token", (q) => q.eq("shareToken", args.token))
+      .first();
+      
+    if (!note) return null;
+
+    const resolvedNotes = await resolveNoteImages(ctx, [note]);
+    
+    // Fetch the sender's user document
+    const sender = await ctx.db.get(note.userId);
+    
+    // Return an object containing both the note and the sender's name/email
+    return {
+      note: resolvedNotes[0],
+      senderName: sender?.name || sender?.email || "A Zielio User"
+    };
+  }
+});
+
+export const saveSharedNote = mutation({
+  args: {
+    token: v.string(),
+    userId: v.id("users"),
+    targetGoalId: v.id("goals"),
+    fileName: v.string(), // NEW: Ask for the file name
+  },
+  handler: async (ctx, args) => {
+    // 1. Verify target goal belongs to the user cloning the note
+    const goal = await ctx.db.get(args.targetGoalId);
+    if (!goal || goal.userId !== args.userId) throw new Error("Invalid target goal");
+
+    // 2. Fetch the shared note
+    const sharedNote = await ctx.db
+      .query("notes")
+      .withIndex("by_share_token", (q) => q.eq("shareToken", args.token))
+      .first();
+      
+    if (!sharedNote) throw new Error("Shared note not found or access revoked");
+
+    // 1. Create a new NoteFile folder for this note inside the target Goal
+    const newFileId = await ctx.db.insert("noteFiles", {
+      userId: args.userId,
+      goalId: args.targetGoalId,
+      name: args.fileName,
+      createdAt: Date.now(),
+    });
+
+    // 2. Duplicate metadata into new user's account, attaching it to the new File
+    const newNoteId = await ctx.db.insert("notes", {
+      userId: args.userId,
+      goalId: args.targetGoalId,
+      fileId: newFileId, // Attach the fileId here!
+      type: sharedNote.type,
+      content: sharedNote.content,
+      images: sharedNote.images, 
+      language: sharedNote.language,
+      code: sharedNote.code,
+      links: sharedNote.links,
+      analysis: sharedNote.analysis,
+      createdAt: Date.now(),
+    });
+
+    return newNoteId;
+  }
+});

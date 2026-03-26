@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom"; // NEW IMPORT
+import { createPortal } from "react-dom";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Maximize2, X, Check, Copy, Save, Loader2 } from "lucide-react";
+import { Trash2, Pencil, Maximize2, X, Save, Loader2, Share2, Check, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { ShareNoteDialog } from "./share-note-dialog";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Image from "next/image";
@@ -27,6 +28,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   const [isEditingLightbox, setIsEditingLightbox] = useState(false);
   const [editContent, setEditContent] = useState("");
@@ -108,13 +110,11 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-primary"
-              onClick={() => setIsEditingMetadata(true)}
-            >
+          <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
+              <Share2 className="w-3 h-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full" onClick={() => setIsEditingMetadata(true)}>
               <Pencil className="w-3 h-3" />
             </Button>
             <Button
@@ -175,10 +175,16 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
         }}
       />
 
-      {/* PORTALED Full Screen Lightbox / Modal */}
+      <ShareNoteDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        noteId={note._id}
+        userId={note.userId}
+      />
+
       {isExpanded && mounted && createPortal(
         <div
-          className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 pointer-events-auto"
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 pointer-events-auto"
           onClick={() => {
             setIsExpanded(false);
             setIsEditingLightbox(false);
@@ -227,35 +233,19 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10"
-                    onClick={() => setIsEditingLightbox(true)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                    <span className="text-xs">Edit</span>
+                  <Button variant="ghost" size="sm" className="h-8 gap-2 text-blue-400 hover:text-blue-300 hover:bg-white/10" onClick={() =>{ setIsShareDialogOpen(true); setIsExpanded(false);}}>
+                    <Share2 className="w-4 h-4" /> <span className="text-xs">Share</span>
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10"
-                    onClick={copyToClipboard}
-                  >
-                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                    <span className="text-xs">{copied ? "Copied" : "Copy"}</span>
+                  <Button variant="ghost" size="sm" className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10" onClick={() => setIsEditingLightbox(true)}>
+                    <Pencil className="w-4 h-4" /> <span className="text-xs">Edit</span>
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded-full"
-                    onClick={() => {
-                      setIsExpanded(false);
-                      setIsEditingLightbox(false);
-                    }}
-                  >
+                  <Button variant="ghost" size="sm" className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10" onClick={copyToClipboard}>
+                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />} <span className="text-xs">{copied ? "Copied" : "Copy"}</span>
+                  </Button>
+                  <div className="w-px h-4 bg-white/10 mx-1" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded-full" onClick={() => { setIsExpanded(false); setIsEditingLightbox(false); }}>
                     <X className="w-5 h-5" />
                   </Button>
                 </div>

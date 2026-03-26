@@ -4,8 +4,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
-import {TextStyle} from '@tiptap/extension-text-style';
-import { Extension } from '@tiptap/core';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Extension, mergeAttributes, Node } from '@tiptap/core';
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   List, ListOrdered, Quote,
@@ -13,6 +13,68 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
+
+// This tells TypeScript that our custom commands exist on the editor object
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    imageTag: {
+      insertImageTag: (options: { index: number }) => ReturnType;
+    };
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
+
+//  CUSTOM IMAGE TAG EXTENSION 
+const ImageTag = Node.create({
+  name: 'imageTag',
+  group: 'inline',
+  inline: true,
+  selectable: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      index: {
+        default: 1,
+        parseHTML: element => element.getAttribute('data-index'),
+        renderHTML: attributes => {
+          return {
+            'data-index': attributes.index,
+          }
+        },
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-image-tag="true"]',
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes, { 
+      'data-image-tag': 'true', 
+      class: 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-md font-bold text-[11px] border border-emerald-500/30 mx-1 select-none inline-flex items-center gap-1 cursor-pointer tracking-wider uppercase shadow-sm transition-colors' 
+    }), `📸 Image ${HTMLAttributes['data-index']}`];
+  },
+
+  addCommands() {
+    return {
+      insertImageTag: (options: { index: number }) => ({ commands }) => {
+        return commands.insertContent({
+          type: this.name,
+          attrs: options,
+        });
+      },
+    };
+  },
+});
 
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -82,7 +144,7 @@ const TabButton = ({
   </button>
 );
 
-const MenuBar = ({ editor }: { editor: any }) => {
+const MenuBar = ({ editor, imageCount }: { editor: any, imageCount?: number }) => {
   if (!editor) return null;
 
   // Get current font size or fallback to '16px' (Normal)
@@ -90,7 +152,8 @@ const MenuBar = ({ editor }: { editor: any }) => {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 p-2.5 bg-background/80 backdrop-blur-xl sticky top-0 z-20 shadow-sm cursor-default">
-      {/* History */}
+      
+      {/* Undo / Redo */}
       <div className="flex items-center gap-1 pr-3 border-r border-white/10">
         <TabButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Undo className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}><Redo className="h-4 w-4" /></TabButton>
@@ -122,21 +185,44 @@ const MenuBar = ({ editor }: { editor: any }) => {
       </div>
       
       {/* Lists & Blocks */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 pr-3 border-r border-white/10">
         <TabButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')}><List className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')}><ListOrdered className="h-4 w-4" /></TabButton>
         <TabButton onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')}><Quote className="h-4 w-4" /></TabButton>
       </div>
+
+      {/*IMAGE TAGGING WIDGET */}
+      {imageCount !== undefined && imageCount > 0 && (
+        <div className="flex items-center gap-1 pl-1">
+          <select
+            className="h-8 bg-emerald-500/10 text-emerald-400 text-xs font-bold tracking-wider uppercase border border-emerald-500/20 hover:bg-emerald-500/20 rounded-md px-2 focus:outline-none transition-all cursor-pointer"
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                // @ts-ignore
+                editor.chain().focus().insertImageTag({ index: parseInt(e.target.value) }).run();
+              }
+            }}
+          >
+            <option value="" disabled className="bg-background text-foreground">📸 Tag Image...</option>
+            {Array.from({ length: imageCount }).map((_, i) => (
+              <option key={i} value={i + 1} className="bg-background text-foreground">Tag Image {i + 1}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 };
 
 export function RichTextEditor({ 
   content, 
-  onChange 
+  onChange,
+  imageCount = 0
 }: { 
   content: string; 
-  onChange: (content: string) => void 
+  onChange: (content: string) => void;
+  imageCount?: number;
 }) {
   const editor = useEditor({
     extensions: [
@@ -145,8 +231,9 @@ export function RichTextEditor({
         codeBlock: { HTMLAttributes: { class: 'custom-code-block' } },
       }),
       Underline,
-      TextStyle, // Required for inline styles
-      FontSize,  // Our custom extension
+      TextStyle, 
+      FontSize,  
+      ImageTag, // Register Image Tag Extension
       Placeholder.configure({
         placeholder: 'What are you thinking? Start writing your amazing note...',
         emptyEditorClass: 'is-editor-empty',
@@ -288,7 +375,7 @@ export function RichTextEditor({
         }
       `}} />
 
-      <MenuBar editor={editor} />
+      <MenuBar editor={editor} imageCount={imageCount} />
 
       <div 
         className="flex-1 custom-scrollbar overflow-y-auto min-h-[346px] cursor-text"

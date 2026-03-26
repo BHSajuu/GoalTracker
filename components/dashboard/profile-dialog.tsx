@@ -188,8 +188,12 @@ export function ProfileDialog({
     }
 
     if (checked) {
-      await subscribeToPush();
-      setPrefs(p => ({ ...p, pushNotifications: true }));
+      // Wait for the result of the subscription attempt
+      const success = await subscribeToPush();
+      // Only toggle the state if the user allowed it
+      if (success) {
+        setPrefs(p => ({ ...p, pushNotifications: true }));
+      }
     } else {
       await unsubscribeFromPush();
       setPrefs(p => ({ ...p, pushNotifications: false }));
@@ -246,8 +250,8 @@ export function ProfileDialog({
       className={cn(
         "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
         activeTab === id
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+          ? "text-white border border-blue-300/30 shadow-[0_0_20px_rgba(147,197,253,0.5)]"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:scale-105 hover:shadow-[0_0_10px_rgba(147,197,253,0.35)]"
       )}
     >
       <Icon className="w-4 h-4 hidden md:block" />
@@ -259,7 +263,7 @@ export function ProfileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] sm:max-w-5xl h-[90vh] md:h-[82vh] p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-3xl border-white/10 shadow-[0_0_100px_rgba(0,100,255,0.15)] ring-1 ring-white/5 z-[99999]">
         
-        {/*  Screen Reader Only Title and Description to satisfy Radix UI */}
+        {/* Screen Reader Only Title and Description to satisfy Radix UI */}
         <DialogTitle className="sr-only">Profile Configuration</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your user profile, system preferences, and security settings.
@@ -314,7 +318,7 @@ export function ProfileDialog({
               </div>
             </div>
 
-            <div className="p-3 space-y-1 flex-1 overflow-y-auto custom-scrollbar flex md:flex-col gap-1 overflow-x-auto md:overflow-x-hidden">
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto custom-scrollbar flex md:flex-col gap-1 overflow-x-auto md:overflow-x-hidden">
               <TabButton id="profile" icon={User} label="Profile & Identity" />
               <TabButton id="preferences" icon={Settings} label="Preferences" />
               <TabButton id="data" icon={Database} label="Data & Security" />
@@ -379,13 +383,13 @@ export function ProfileDialog({
                     </div>
 
                     <div className="pt-4 border-t border-white/5">
-                      <Button onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto min-w-[150px] bg-primary text-primary-foreground font-bold shadow-[0_0_20px_rgba(0,212,255,0.2)]">
+                      <Button onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto min-w-[150px] bg-[#73eb8f] hover:bg-[#368549] text-black font-bold  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                         Save Changes
                       </Button>
                     </div>
                   </div>
-                </motion.div>
+                </motion.div> 
               )}
 
               {/* TAB 2: PREFERENCES */}
@@ -471,7 +475,7 @@ export function ProfileDialog({
                     </div>
 
                     <div className="pt-4 border-t border-white/5">
-                      <Button onClick={handleSavePreferences} disabled={isSavingPrefs} className="w-full sm:w-auto min-w-[150px] bg-primary text-primary-foreground font-bold shadow-[0_0_20px_rgba(0,212,255,0.2)]">
+                      <Button onClick={handleSavePreferences} disabled={isSavingPrefs} className="w-full sm:w-auto min-w-[150px] bg-[#73eb8f] hover:bg-[#368549] text-black font-bold shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400">
                         {isSavingPrefs ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                         Save Preferences
                       </Button>

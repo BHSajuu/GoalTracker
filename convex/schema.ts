@@ -97,9 +97,11 @@ export default defineSchema({
     links: v.optional(v.array(v.string())),
     createdAt: v.number(),
     analysis: v.optional(v.record(v.string(), v.string())),
+    shareToken: v.optional(v.string()), // for Public Sharing
   })
     .index("by_goal", ["goalId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_share_token", ["shareToken"]), // Index to quickly find note via URL parameter
 
   focusSessions: defineTable({
     userId: v.id("users"),

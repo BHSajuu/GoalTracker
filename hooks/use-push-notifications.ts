@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { urlBase64ToUint8Array } from "@/lib/push-utils";
-import { toast } from "sonner"; 
+import { toast } from "sonner";
 
 export function usePushNotifications(userId: string | undefined) {
   const [isSupported, setIsSupported] = useState(false);
@@ -31,7 +31,7 @@ export function usePushNotifications(userId: string | undefined) {
   };
 
   const subscribeToPush = async () => {
-    if (!userId) return;
+    if (!userId) return false;
     setIsLoading(true);
 
     try {
@@ -40,7 +40,7 @@ export function usePushNotifications(userId: string | undefined) {
       if (permission !== "granted") {
         toast.error("Notifications blocked. Please enable them in your browser settings.");
         setIsLoading(false);
-        return;
+        return false; // Return false if blocked or dismissed
       }
 
       // 2. Register Service Worker
@@ -70,9 +70,11 @@ export function usePushNotifications(userId: string | undefined) {
 
       setIsSubscribed(true);
       toast.success("Successfully subscribed to notifications!");
+      return true; // Return true on success
     } catch (error: any) {
       console.error("Failed to subscribe:", error);
       toast.error(error.message || "Failed to subscribe to notifications.");
+      return false; // Return false on error
     } finally {
       setIsLoading(false);
     }
@@ -87,15 +89,17 @@ export function usePushNotifications(userId: string | undefined) {
       if (subscription) {
         // 1. Remove from Convex DB
         await removeSub({ endpoint: subscription.endpoint });
-        
+
         // 2. Unsubscribe browser
         await subscription.unsubscribe();
         setIsSubscribed(false);
         toast.success("Notifications disabled for this device.");
       }
+      return true;
     } catch (error) {
       console.error("Error unsubscribing:", error);
       toast.error("Failed to unsubscribe.");
+      return false;
     } finally {
       setIsLoading(false);
     }

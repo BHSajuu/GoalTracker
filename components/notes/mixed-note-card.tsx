@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
@@ -9,20 +10,22 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Trash2, Pencil, Maximize2, Layers, Link as LinkIcon, 
+import {
+  Trash2, Pencil, Maximize2, Layers, Link as LinkIcon,
   Code2, Image as ImageIcon, ExternalLink, Type, X, ChevronLeft, ChevronRight,
-  Check, Copy, FileText, Loader2, Save, ScanEye, Sparkles, CornerDownRight, Eye, Edit3, ChevronDown
+  Check, Copy, FileText, Loader2, Save, ScanEye, Sparkles, CornerDownRight, Eye, Edit3, ChevronDown, Share2
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { ShareNoteDialog } from "./share-note-dialog";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAIGate } from "@/hooks/use-ai-gate";
 
 interface MixedNoteCardProps {
   note: Doc<"notes"> & { imageUrls?: string[], analysis?: Record<string, string> };
@@ -41,7 +44,7 @@ const MarkdownComponents = {
   em: ({ node, ...props }: any) => <em className="italic text-foreground/80" {...props} />,
   a: ({ node, ...props }: any) => <a className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
   blockquote: ({ node, ...props }: any) => <blockquote className="border-l-2 border-primary/50 pl-4 py-1.5 my-2 bg-primary/5 rounded-r-lg italic text-muted-foreground" {...props} />,
-  code: ({ node, inline, ...props }: any) => inline ? ( <code className="bg-black/40 rounded px-1.5 py-0.5 font-mono text-[11px] md:text-xs text-foreground/90 border border-white/5" {...props} /> ) : ( <pre className="bg-black/50 p-3 rounded-xl overflow-x-auto border border-white/10 my-2 custom-scrollbar"><code className="font-mono text-[11px] md:text-xs text-foreground/90" {...props} /></pre> ),
+  code: ({ node, inline, ...props }: any) => inline ? (<code className="bg-black/40 rounded px-1.5 py-0.5 font-mono text-[11px] md:text-xs text-foreground/90 border border-white/5" {...props} />) : (<pre className="bg-black/50 p-3 rounded-xl overflow-x-auto border border-white/10 my-2 custom-scrollbar"><code className="font-mono text-[11px] md:text-xs text-foreground/90" {...props} /></pre>),
   table: ({ node, ...props }: any) => <div className="overflow-x-auto my-3 w-full"><table className="w-full text-sm text-left border-collapse" {...props} /></div>,
   thead: ({ node, ...props }: any) => <thead className="text-xs uppercase bg-black/40 text-foreground/70" {...props} />,
   tbody: ({ node, ...props }: any) => <tbody className="divide-y divide-white/10" {...props} />,
@@ -60,10 +63,14 @@ const formatMarkdownDisplay = (text?: string) => {
 };
 
 export function MixedNoteCard({ note }: MixedNoteCardProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [isEditing, setIsEditing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [returnToDialog, setReturnToDialog] = useState(false);
-  
+
   // Copy States
   const [hasCopiedText, setHasCopiedText] = useState(false);
   const [hasCopiedCode, setHasCopiedCode] = useState(false);
@@ -87,9 +94,10 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
   const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
-    
+
   const isRateLimited = usage !== undefined && usage >= 8;
-  
+  const { withAIGate, AIGateDialog } = useAIGate();
+
   const handleRemove = async () => {
     try {
       await removeNote({ id: note._id, userId: note.userId });
@@ -110,7 +118,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
     if (type === 'text') {
       textToCopy = content.replace(/<[^>]+>/g, ''); // Strip HTML tags for cleaner copying
     }
-    
+
     await navigator.clipboard.writeText(textToCopy);
     toast.success("Copied to clipboard");
 
@@ -134,7 +142,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
   };
 
   const handleAnalyze = async (url: string) => {
-   if (isRateLimited) {
+    if (isRateLimited) {
       window.dispatchEvent(new Event("show-rate-limit-dialog"));
       return;
     }
@@ -142,7 +150,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
     setIsDialogOpen(false);
     setLightboxIndex(null);
     setReturnToViewOnClose(true); // Return to combined view when done
-    
+
     setShowAiDialog(true);
     setCurrentAnalysisImageUrl(url);
     setIsAnalyzing(true);
@@ -151,7 +159,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
     try {
       const base64 = await getBase64Image(url);
-      const rawResult = await analyzeImage({userId: note.userId, imageBase64: base64 });
+      const rawResult = await analyzeImage({ userId: note.userId, imageBase64: base64 });
       const processedResult = formatMarkdownDisplay(rawResult || "No analysis generated.");
       setEditableAnalysis(processedResult);
     } catch (error: any) {
@@ -259,7 +267,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
   return (
     <>
-      <Card 
+      <Card
         className="glass md:w-96 group hover:border-primary/40 transition-all duration-300 break-inside-avoid flex flex-col cursor-pointer overflow-hidden relative"
         onClick={() => setIsDialogOpen(true)}
       >
@@ -273,6 +281,9 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
             </span>
           </div>
           <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-background/50 backdrop-blur-sm rounded-full px-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
+              <Share2 className="w-3.5 h-3.5" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={(e) => { e.stopPropagation(); setReturnToDialog(false); setIsEditing(true); }}>
               <Pencil className="w-3.5 h-3.5" />
             </Button>
@@ -327,9 +338,9 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                 );
               })}
               {linksContent.length > 2 && (
-                 <div className="text-[10px] text-muted-foreground font-medium px-2 py-1 bg-white/5 rounded-md inline-block border border-white/5">
-                   +{linksContent.length - 2} more references
-                 </div>
+                <div className="text-[10px] text-muted-foreground font-medium px-2 py-1 bg-white/5 rounded-md inline-block border border-white/5">
+                  +{linksContent.length - 2} more references
+                </div>
               )}
             </div>
           )}
@@ -358,10 +369,23 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
       {/* FULL SCREEN READ DIALOG */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent 
+        <DialogContent
           className="sm:max-w-2xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-white/10 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl"
-          onInteractOutside={(e) => { if (lightboxIndex !== null) e.preventDefault(); }}
-          onEscapeKeyDown={(e) => { if (lightboxIndex !== null) e.preventDefault(); }}
+          onInteractOutside={(e) => {
+            // PREVENT CLOSING if clicking inside another dialog portal (like the AI Gate Alert)
+            const target = e.target as Element;
+            if (target.closest('[role="dialog"]') || target.closest('[role="alertdialog"]')) {
+              e.preventDefault();
+            }
+            if (lightboxIndex !== null) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            // PREVENT ESCAPE from closing this if an alert dialog is currently open
+            if (document.querySelector('[role="alertdialog"]')) {
+              e.preventDefault();
+            }
+            if (lightboxIndex !== null) e.preventDefault();
+          }}
         >
           <DialogHeader className="px-6 py-5 border-b border-white/5 bg-secondary/20 shrink-0 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
@@ -379,6 +403,9 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
             </div>
 
             <div className="flex items-center gap-3 pr-6">
+              <Button variant="outline" size="sm" onClick={() => { setIsDialogOpen(false); setIsShareDialogOpen(true); }} className="h-8 gap-1.5 text-blue-400 hover:text-blue-300 border-white/10">
+                <Share2 className="w-3.5 h-3.5" /> Share
+              </Button>
               <Button variant="default" size="sm" onClick={handleEditFromDialog} className="h-8 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors">
                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
                 Edit Content
@@ -387,7 +414,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-8 space-y-8 py-6">
-            
+
             {/* TEXT SECTION */}
             {textContent && (
               <div className="space-y-3">
@@ -400,7 +427,23 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                     Copy Text
                   </Button>
                 </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-[#09090b] prose-pre:border prose-pre:border-white/10 text-foreground/90 bg-black/10 p-4 rounded-xl border border-white/5" dangerouslySetInnerHTML={{ __html: textContent }} />
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-[#09090b] prose-pre:border prose-pre:border-white/10 text-foreground/90 bg-black/10 p-4 rounded-xl border border-white/5"
+                  dangerouslySetInnerHTML={{ __html: textContent }}
+                  onClick={(e) => {
+                    // Make Image Tags Clickable to open the Lightbox!
+                    const target = e.target as HTMLElement;
+                    const tag = target.closest('[data-image-tag="true"]');
+                    if (tag) {
+                      const idx = parseInt(tag.getAttribute('data-index') || "1", 10) - 1;
+                      if (!isNaN(idx) && idx >= 0 && idx < imagesToDisplay.length) {
+                        setReturnToViewOnClose(true);
+                        setIsDialogOpen(false); // Hide the text dialog temporarily
+                        setLightboxIndex(idx);  // Open the lightbox
+                      }
+                    }
+                  }}
+                />              
               </div>
             )}
 
@@ -414,10 +457,10 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                   {imagesToDisplay.map((url, i) => {
                     const analysis = note.analysis?.[url];
                     const isExpanded = expandedAnalysisUrl === url;
-                    
+
                     return (
                       <div key={i} className="flex flex-col gap-2 bg-black/10 p-2 rounded-xl border border-white/5">
-                        <div 
+                        <div
                           className="relative aspect-video rounded-lg overflow-hidden border border-white/10 group cursor-pointer shadow-md bg-black/20"
                           onClick={() => { setReturnToViewOnClose(true); setIsDialogOpen(false); setLightboxIndex(i); }}
                         >
@@ -427,7 +470,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                           </div>
                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                             <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-black/50 hover:bg-blue-600/90 text-white border border-white/20 backdrop-blur-md shadow-lg"
-                              onClick={(e) => { e.stopPropagation(); handleAnalyze(url); }} title="Analyze Image"
+                              onClick={(e) => { e.stopPropagation(); withAIGate(() => handleAnalyze(url)); }} title="Analyze Image"
                             >
                               <ScanEye className="w-4 h-4 text-blue-300 group-hover:text-white" />
                             </Button>
@@ -442,7 +485,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                         {/* Expandable Analysis Section */}
                         {analysis && (
                           <div className="flex flex-col gap-1 mt-1">
-                            <div 
+                            <div
                               className="flex items-center justify-between cursor-pointer py-2 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg transition-colors border border-emerald-500/20"
                               onClick={() => setExpandedAnalysisUrl(isExpanded ? null : url)}
                             >
@@ -490,7 +533,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                     <LinkIcon className="w-3.5 h-3.5" /> External References ({linksContent.length})
                   </div>
                 </div>
-                
+
                 <div className={`grid gap-4 ${linksContent.length === 1 ? 'grid-cols-1 max-w-lg' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {linksContent.map((linkUrl, i) => {
                     const isGoogleDoc = linkUrl.includes("docs.google.com");
@@ -499,33 +542,33 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                     const isGithub = linkUrl.includes("github.com");
 
                     return (
-                        <div key={i} className="relative group bg-black/10 p-2.5 rounded-xl border border-white/5 flex flex-col gap-3">
-                           {/* Individual Link Copy Button */}
-                           <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="secondary" size="sm" onClick={() => handleCopy('link', linkUrl)} className="h-7 px-2 text-[10px] bg-black/50 hover:bg-blue-600/90 text-white backdrop-blur-md border border-white/10 rounded-md shadow-lg">
-                                {hasCopiedLink ? <Check className="w-3 h-3 mr-1 text-green-400" /> : <Copy className="w-3 h-3 mr-1" />} Copy
-                              </Button>
-                           </div>
+                      <div key={i} className="relative group bg-black/10 p-2.5 rounded-xl border border-white/5 flex flex-col gap-3">
+                        {/* Individual Link Copy Button */}
+                        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="secondary" size="sm" onClick={() => handleCopy('link', linkUrl)} className="h-7 px-2 text-[10px] bg-black/50 hover:bg-blue-600/90 text-white backdrop-blur-md border border-white/10 rounded-md shadow-lg">
+                            {hasCopiedLink ? <Check className="w-3 h-3 mr-1 text-green-400" /> : <Copy className="w-3 h-3 mr-1" />} Copy
+                          </Button>
+                        </div>
 
-                          {isYoutube && youtubeId && (
-                            <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="block relative group/video rounded-lg overflow-hidden aspect-video border border-border/50">
-                              <img src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`} alt="Video thumbnail" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/20 group-hover/video:bg-black/10 transition-colors flex items-center justify-center">
-                                <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover/video:scale-110 transition-transform">
-                                  <Image src="/youp.png" alt="Youtube" width={30} height={30} />
-                                </div>
+                        {isYoutube && youtubeId && (
+                          <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="block relative group/video rounded-lg overflow-hidden aspect-video border border-border/50">
+                            <img src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`} alt="Video thumbnail" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/20 group-hover/video:bg-black/10 transition-colors flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover/video:scale-110 transition-transform">
+                                <Image src="/youp.png" alt="Youtube" width={30} height={30} />
                               </div>
-                            </a>
-                          )}
-
-                          <a href={linkUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary shadow-lg hover:shadow-blue-300/30 transition-all duration-400 border border-border/50 w-full`}>
-                            {isGoogleDoc ? <div className="p-2 bg-blue-100/10 rounded-md shrink-0"><Image src="/doc.png" alt="doc" width={30} height={30} /></div> : isYoutube ? <div className="p-2 bg-red-100/10 rounded-md shrink-0"><Image src="/you.png" alt="Youtube" width={30} height={30} /></div> : isGithub ? <div className="p-1 rounded-md shrink-0"><Image src="/git.png" alt="Github" width={34} height={34} /></div> : <div className="p-2 bg-orange-100/10 rounded-md shrink-0"><ExternalLink className="w-6 h-6 text-orange-500" /></div>}
-                            <div className="flex-1 min-w-0 pr-12">
-                              <p className="text-sm font-medium truncate text-foreground">{isGoogleDoc ? "Google Document" : isYoutube ? "YouTube Video" : isGithub ? "GitHub Repository" : "External Link"}</p>
-                              <p className="text-xs text-muted-foreground truncate opacity-70">{linkUrl}</p>
                             </div>
                           </a>
-                        </div>
+                        )}
+
+                        <a href={linkUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary shadow-lg hover:shadow-blue-300/30 transition-all duration-400 border border-border/50 w-full`}>
+                          {isGoogleDoc ? <div className="p-2 bg-blue-100/10 rounded-md shrink-0"><Image src="/doc.png" alt="doc" width={30} height={30} /></div> : isYoutube ? <div className="p-2 bg-red-100/10 rounded-md shrink-0"><Image src="/you.png" alt="Youtube" width={30} height={30} /></div> : isGithub ? <div className="p-1 rounded-md shrink-0"><Image src="/git.png" alt="Github" width={34} height={34} /></div> : <div className="p-2 bg-orange-100/10 rounded-md shrink-0"><ExternalLink className="w-6 h-6 text-orange-500" /></div>}
+                          <div className="flex-1 min-w-0 pr-12">
+                            <p className="text-sm font-medium truncate text-foreground">{isGoogleDoc ? "Google Document" : isYoutube ? "YouTube Video" : isGithub ? "GitHub Repository" : "External Link"}</p>
+                            <p className="text-xs text-muted-foreground truncate opacity-70">{linkUrl}</p>
+                          </div>
+                        </a>
+                      </div>
                     );
                   })}
                 </div>
@@ -581,16 +624,24 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
         initialData={{ _id: note._id, type: "mixed", content: note.content, imageUrls: note.imageUrls, images: note.images, code: note.code, links: note.links, language: note.language }}
       />
 
-      {/* Custom Full Screen Lightbox */}
-      {lightboxIndex !== null && (
-        <div className="fixed top-20 rounded-3xl right-5 left-5 md:inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center md:w-full h-[85vh] md:h-full" onClick={closeLightbox}>
-          <button onClick={closeLightbox} className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000]">
+      <ShareNoteDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        noteId={note._id}
+        userId={note.userId}
+      />
+
+      {/* PORTALED FULL SCREEN LIGHTBOX */}
+      {lightboxIndex !== null && mounted && createPortal(
+        <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center pointer-events-auto" onClick={closeLightbox}>
+          <button onClick={closeLightbox} className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[100001]">
             <X className="w-6 h-6 md:w-8 md:h-8" />
           </button>
+
           <div className="relative w-full h-full p-4 md:p-10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <img src={imagesToDisplay[lightboxIndex]} alt="Full view" className="max-w-full max-h-[85vh] object-contain select-none shadow-2xl rounded-lg" />
-            
-            <button onClick={(e) => { e.stopPropagation(); handleAnalyze(imagesToDisplay[lightboxIndex]); }} className="absolute bottom-6 md:bottom-10 right-4 md:right-10 px-4 py-2 md:px-5 md:py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-50">
+
+            <button onClick={(e) => { e.stopPropagation(); withAIGate(() => handleAnalyze(imagesToDisplay[lightboxIndex])); }} className="absolute bottom-6 md:bottom-10 right-4 md:right-10 px-4 py-2 md:px-5 md:py-3 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full flex items-center gap-2 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:scale-105 z-[100001]">
               <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
               <span className="text-xs md:text-sm font-bold tracking-wide">
                 {!!note.analysis?.[imagesToDisplay[lightboxIndex]] ? "Re-Analyze Image" : "Analyze with Vision"}
@@ -599,24 +650,25 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
 
             {imagesToDisplay.length > 1 && (
               <>
-                <button onClick={handlePrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110">
+                <button onClick={handlePrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110 z-[100001]">
                   <ChevronLeft className="w-6 h-6 md:w-10 md:h-10" />
                 </button>
-                <button onClick={handleNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110">
+                <button onClick={handleNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all hover:scale-110 z-[100001]">
                   <ChevronRight className="w-6 h-6 md:w-10 md:h-10" />
                 </button>
               </>
             )}
-            <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-black/60 rounded-full text-white/90 text-xs md:text-sm font-medium tracking-wider">
+            <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-black/60 rounded-full text-white/90 text-xs md:text-sm font-medium tracking-wider z-[100001]">
               {lightboxIndex + 1} / {imagesToDisplay.length}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* AI Analysis Dialog */}
       <Dialog open={showAiDialog} onOpenChange={(open) => { if (!open) { setShowAiDialog(false); if (returnToViewOnClose) setTimeout(() => setIsDialogOpen(true), 150); } else setShowAiDialog(true); }}>
-        <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[90vh] md:max-h-[95vh] bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0 flex flex-col">
+        <DialogContent className="z-[100000] w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[90vh] md:max-h-[95vh] bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.2)] rounded-3xl overflow-hidden p-0 flex flex-col">
           <div className="p-4 md:p-6 pb-3 md:pb-4 border-b border-white/5 bg-gradient-to-b from-blue-500/10 to-transparent flex items-center justify-between shrink-0">
             <DialogHeader className="flex flex-col md:flex-row w-[95%] justify-between items-start md:items-center gap-3">
               <div className="flex items-center gap-2 md:gap-3">
@@ -639,7 +691,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
           </div>
 
           <div className="p-4 md:px-5 space-y-2 overflow-y-auto flex-1 custom-scrollbar">
-            {isAnalyzing ? ( <LaserScanner /> ) : editableAnalysis ? (
+            {isAnalyzing ? (<LaserScanner />) : editableAnalysis ? (
               <Tabs value={aiDialogTab} onValueChange={(v) => setAiDialogTab(v as "preview" | "edit")} className="w-full h-full flex flex-col">
                 <div className="flex justify-between items-center mb-3 shrink-0">
                   <div className="flex items-center gap-2 text-muted-foreground text-[10px] uppercase font-bold tracking-widest">
@@ -681,6 +733,9 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* RENDER ONCE AT THE ROOT */}
+      <AIGateDialog />
     </>
   );
 }

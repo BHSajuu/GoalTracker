@@ -11,16 +11,13 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Trash2, ChevronLeft, ChevronRight, X, Maximize2,
-  PencilIcon, Sparkles, Loader2, Save, Copy, FileText, CornerDownRight, Zap,
-  ScanEye,
-  Check,
-  Eye,
-  Edit3
+  Trash2, ChevronLeft, ChevronRight, X, Maximize2, Share2,
+  PencilIcon, Sparkles, Loader2, Save, Copy, FileText, CornerDownRight, Zap, ScanEye, Check, Eye, Edit3
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { ShareNoteDialog } from "./share-note-dialog";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
@@ -83,6 +80,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   useEffect(() => setMounted(true), []);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [returnToViewOnClose, setReturnToViewOnClose] = useState(false);
   const [returnToViewFromAi, setReturnToViewFromAi] = useState(false);
@@ -315,6 +313,9 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
             </span>
           </div>
           <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
+              <Share2 className="w-3.5 h-3.5" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => setIsEditing(true)}>
               <PencilIcon className="w-3.5 h-3.5" />
             </Button>
@@ -387,6 +388,13 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
         initialData={{ _id: note._id, type: "image", imageUrls: note.imageUrls, images: note.images }}
       />
 
+      <ShareNoteDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        noteId={note._id}
+        userId={note.userId}
+      />
+
       {/* PREMIUM tabbed View Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent className="z-[100000] w-[95vw] max-w-lg md:max-w-3xl max-h-[90vh] md:max-h-[95vh] flex flex-col bg-background/80 backdrop-blur-2xl border-white/10 shadow-[0_0_60px_rgba(37,99,235,0.15)] rounded-3xl overflow-hidden p-0">
@@ -396,6 +404,12 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
           {/* Accessiblity Requirements */}
           <DialogTitle className="sr-only">Image Note Details</DialogTitle>
           <DialogDescription className="sr-only">Created on {format(note.createdAt, "MMMM d, yyyy h:mm a")}</DialogDescription>
+
+          <div className="absolute top-3 right-4 z-50 flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsShareDialogOpen(true)} className="h-8 gap-1.5 text-blue-400 hover:text-blue-300 border-white/10 bg-black/20">
+              <Share2 className="w-3.5 h-3.5" /> Share
+            </Button>
+          </div>
 
           {analyzedImages.length > 0 && (
             <Tabs value={activeAnalysisTabUrl || analyzedImages[0]} onValueChange={setActiveAnalysisTabUrl} className="flex flex-col w-full h-full max-h-[90vh] md:max-h-[95vh]">

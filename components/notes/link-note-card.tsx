@@ -6,10 +6,11 @@ import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, ExternalLink, Pencil } from "lucide-react";
+import { Trash2, ExternalLink, Pencil, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { ShareNoteDialog } from "./share-note-dialog";
 import Image from "next/image";
 
 interface LinkNoteCardProps {
@@ -18,6 +19,7 @@ interface LinkNoteCardProps {
 
 export function LinkNoteCard({ note }: LinkNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const removeNote = useMutation(api.notes.remove);
 
   const handleRemove = async () => {
@@ -63,13 +65,11 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-3 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-primary"
-              onClick={() => setIsEditing(true)}
-            >
+          <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
+              <Share2 className="w-3 h-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full" onClick={() => setIsEditing(true)}>
               <Pencil className="w-3 h-3" />
             </Button>
             <Button
@@ -167,11 +167,14 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
         onOpenChange={setIsEditing}
         userId={note.userId}
         mode="edit"
-        initialData={{
-          _id: note._id,
-          type: "link",
-          links: validLinks, 
-        }}
+        initialData={{ _id: note._id, type: "link", links: validLinks }}
+      />
+
+      <ShareNoteDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        noteId={note._id}
+        userId={note.userId}
       />
     </>
   );

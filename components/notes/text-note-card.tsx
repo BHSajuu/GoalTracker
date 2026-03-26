@@ -6,10 +6,11 @@ import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Maximize2, Copy, Check } from "lucide-react";
+import { Trash2, Pencil, Maximize2, Copy, Check, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
+import { ShareNoteDialog } from "./share-note-dialog";
 import Image from "next/image";
 import {
   Dialog,
@@ -25,6 +26,7 @@ interface TextNoteCardProps {
 export function TextNoteCard({ note }: TextNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const removeNote = useMutation(api.notes.remove);
   const [returnToDialog, setReturnToDialog] = useState(false);
@@ -80,12 +82,10 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
             </span>
           </div>
           <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-primary"
-              onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
+              <Share2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary rounded-full" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}>
               <Pencil className="w-3.5 h-3.5" />
             </Button>
             <Button
@@ -141,23 +141,14 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
 
             {/* Edit & Copy */}
             <div className="flex items-center gap-2 pr-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopy}
-                className="h-8 border-white/10 hover:bg-white/5 text-muted-foreground hover:text-foreground"
-              >
-                {hasCopied ? <Check className="w-3.5 h-3.5 mr-1.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
-                {hasCopied ? "Copied" : "Copy"}
+              <Button variant="outline" size="sm" onClick={() => { setIsDialogOpen(false); setIsShareDialogOpen(true); }} className="h-8 gap-1.5 text-blue-400 hover:text-blue-300 border-white/10">
+                <Share2 className="w-3.5 h-3.5" /> Share
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleEditFromDialog}
-                className="h-8 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
-              >
-                <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                Edit Note
+              <Button variant="outline" size="sm" onClick={handleCopy} className="h-8 border-white/10 hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                {hasCopied ? <Check className="w-3.5 h-3.5 mr-1.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />} {hasCopied ? "Copied" : "Copy"}
+              </Button>
+              <Button variant="default" size="sm" onClick={handleEditFromDialog} className="h-8 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20">
+                <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Note
               </Button>
             </div>
           </DialogHeader>
@@ -193,11 +184,14 @@ export function TextNoteCard({ note }: TextNoteCardProps) {
         }}
         userId={note.userId}
         mode="edit"
-        initialData={{
-          _id: note._id,
-          type: "text",
-          content: note.content,
-        }}
+        initialData={{ _id: note._id, type: "text", content: note.content }}
+      />
+
+      <ShareNoteDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        noteId={note._id}
+        userId={note.userId}
       />
     </>
   );

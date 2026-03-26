@@ -1,31 +1,38 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { AuthForm } from "@/components/auth/auth-form";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginContent() {
   const { userId, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
 
   useEffect(() => {
     if (!isLoading && userId) {
-      router.push("/dashboard");
+      // If a redirect URL exists, go there. Otherwise, go to dashboard.
+      router.push(redirect || "/dashboard");
     }
-  }, [userId, isLoading, router]);
+  }, [userId, isLoading, router, redirect]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  return <AuthForm />;
+}
+
+export default function LoginPage() {
   return (
     <main className="min-h-screen bg-background grid-pattern relative overflow-hidden">
       <div className="absolute top-4 left-4 md:top-8 md:left-8 z-20 animate-fade-in">
@@ -48,7 +55,9 @@ export default function LoginPage() {
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <AuthForm />
+        <Suspense fallback={<Loader2 className="w-8 h-8 animate-spin text-primary" />}>
+          <LoginContent />
+        </Suspense>
       </div>
 
       {/* Bottom Glow Line */}
