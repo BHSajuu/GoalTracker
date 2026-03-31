@@ -223,6 +223,13 @@ export default function NotesPage() {
       : notes.filter(n => n.fileId === selectedFile._id)
     : [];
 
+  // Sort notes: Pinned first, then newest
+  const sortedNotes = [...activeNotes].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return b.createdAt - a.createdAt;
+  });
+
   return (
     <div className="flex flex-col h-[calc(100vh-65px)] space-y-3 pb-16 lg:pb-0 animate-fade-in">
 
@@ -333,9 +340,9 @@ export default function NotesPage() {
               <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 md:px-6 pb-20">
                 {isPending ? (
                   <NoteListSkeleton />
-                ) : activeNotes.length > 0 ? (
+                ) : sortedNotes.length > 0 ? (
                   <div className="columns-1 sm:columns-[300px] 2xl:columns-[380px] gap-4 space-y-4">
-                    {activeNotes.map(note => (
+                    {sortedNotes.map(note => (
                       <div key={note._id} className="break-inside-avoid">
                         <NoteCard note={note} />
                       </div>

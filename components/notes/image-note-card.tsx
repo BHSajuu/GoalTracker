@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Trash2, ChevronLeft, ChevronRight, X, Maximize2, Share2,
+  Trash2, ChevronLeft, ChevronRight, X, Maximize2, Share2, Pin,
   PencilIcon, Sparkles, Loader2, Save, Copy, FileText, CornerDownRight, Zap, ScanEye, Check, Eye, Edit3
 } from "lucide-react";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAIGate } from "@/hooks/use-ai-gate";
+import { cn } from "@/lib/utils";
 
 interface ImageNoteCardProps {
   note: Doc<"notes"> & { imageUrls?: string[] };
@@ -96,6 +97,7 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
   const [aiDialogTab, setAiDialogTab] = useState<"preview" | "edit">("preview");
 
   const removeNote = useMutation(api.notes.remove);
+  const togglePin = useMutation(api.notes.togglePin);
   const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
@@ -110,6 +112,15 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
+    }
+  };
+
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await togglePin({ id: note._id, userId: note.userId });
+    } catch (error) {
+      toast.error("Failed to pin note");
     }
   };
 
@@ -313,6 +324,9 @@ export function ImageNoteCard({ note }: ImageNoteCardProps) {
             </span>
           </div>
           <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 rounded-full" onClick={handleTogglePin}>
+              <Pin className={cn("w-3.5 h-3.5", note.isPinned && "fill-current text-yellow-500")} />
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
               <Share2 className="w-3.5 h-3.5" />
             </Button>

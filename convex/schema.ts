@@ -15,6 +15,7 @@ export default defineSchema({
         streakReminders: v.boolean(),
         aiQuotaAlerts: v.boolean(),
         enableAiFeatures: v.boolean(),
+        enableTimeTracking: v.boolean(),
       })
     ),
     createdAt: v.number(),
@@ -88,7 +89,7 @@ export default defineSchema({
   notes: defineTable({
     userId: v.id("users"),
     goalId: v.id("goals"),
-    fileId: v.optional(v.id("noteFiles")), 
+    fileId: v.optional(v.id("noteFiles")),
     type: v.union(v.literal("text"), v.literal("image"), v.literal("link"), v.literal("code"), v.literal("mixed")),
     content: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
@@ -98,6 +99,7 @@ export default defineSchema({
     createdAt: v.number(),
     analysis: v.optional(v.record(v.string(), v.string())),
     shareToken: v.optional(v.string()), // for Public Sharing
+    isPinned: v.optional(v.boolean()),
   })
     .index("by_goal", ["goalId"])
     .index("by_user", ["userId"])

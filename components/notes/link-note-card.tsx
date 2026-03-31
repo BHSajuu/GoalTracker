@@ -6,12 +6,13 @@ import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, ExternalLink, Pencil, Share2 } from "lucide-react";
+import { Trash2, ExternalLink, Pencil, Share2, Pin } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
 import { ShareNoteDialog } from "./share-note-dialog";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface LinkNoteCardProps {
   note: Doc<"notes">;
@@ -21,6 +22,7 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const removeNote = useMutation(api.notes.remove);
+  const togglePin = useMutation(api.notes.togglePin);
 
   const handleRemove = async () => {
     try {
@@ -28,6 +30,15 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
+    }
+  };
+
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await togglePin({ id: note._id, userId: note.userId });
+    } catch (error) {
+      toast.error("Failed to pin note");
     }
   };
 
@@ -66,6 +77,9 @@ export function LinkNoteCard({ note }: LinkNoteCardProps) {
           </div>
 
           <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 rounded-full" onClick={handleTogglePin}>
+              <Pin className={cn("w-3 h-3", note.isPinned && "fill-current text-yellow-500")} />
+            </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
               <Share2 className="w-3 h-3" />
             </Button>

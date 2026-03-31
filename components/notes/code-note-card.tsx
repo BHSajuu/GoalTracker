@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Maximize2, X, Save, Loader2, Share2, Check, Copy } from "lucide-react";
+import { Trash2, Pencil, Maximize2, X, Save, Loader2, Share2, Check, Copy, Pin } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { UpsertNoteDialog } from "./upsert-note-dialog";
@@ -15,6 +15,7 @@ import { ShareNoteDialog } from "./share-note-dialog";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface CodeNoteCardProps {
   note: Doc<"notes">;
@@ -36,6 +37,7 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
 
   const removeNote = useMutation(api.notes.remove);
   const updateNote = useMutation(api.notes.update);
+  const togglePin = useMutation(api.notes.togglePin);
 
   const handleRemove = async () => {
     try {
@@ -43,6 +45,15 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
       toast.success("Note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
+    }
+  };
+
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await togglePin({ id: note._id, userId: note.userId });
+    } catch (error) {
+      toast.error("Failed to pin note");
     }
   };
 
@@ -111,6 +122,9 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
           </div>
 
           <div className="flex items-center justify-between gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 rounded-full" onClick={handleTogglePin}>
+              <Pin className={cn("w-3 h-3", note.isPinned && "fill-current text-yellow-500")} />
+            </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
               <Share2 className="w-3 h-3" />
             </Button>
@@ -232,17 +246,17 @@ export function CodeNoteCard({ note }: CodeNoteCardProps) {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center lg:gap-2">
                   <Button variant="ghost" size="sm" className="h-8 gap-2 text-blue-400 hover:text-blue-300 hover:bg-white/10" onClick={() =>{ setIsShareDialogOpen(true); setIsExpanded(false);}}>
-                    <Share2 className="w-4 h-4" /> <span className="text-xs">Share</span>
+                    <Share2 className="w-4 h-4" /> <span className="text-xs hidden lg:block">Share</span>
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
                   <Button variant="ghost" size="sm" className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10" onClick={() => setIsEditingLightbox(true)}>
-                    <Pencil className="w-4 h-4" /> <span className="text-xs">Edit</span>
+                    <Pencil className="w-4 h-4" /> <span className="text-xs hidden lg:block">Edit</span>
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
                   <Button variant="ghost" size="sm" className="h-8 gap-2 text-white/70 hover:text-white hover:bg-white/10" onClick={copyToClipboard}>
-                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />} <span className="text-xs">{copied ? "Copied" : "Copy"}</span>
+                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />} <span className="text-xs hidden lg:block">{copied ? "Copied" : "Copy"}</span>
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded-full" onClick={() => { setIsExpanded(false); setIsEditingLightbox(false); }}>

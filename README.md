@@ -42,6 +42,8 @@ Built with a modern, real-time stack (**Next.js 16 + Convex**), Zielio leverages
 ### 📝 The Knowledge Base & Collaboration
 * **📂 Multi-Modal Notes System**
     * A robust notes system powered by Convex File Storage. Attach dedicated Code Snippets (with syntax highlighting), Image galleries, and Link collections (with YouTube video previews) directly to your goals.
+* **📌 Note Pinning & Organization**
+    * Keep your most important resources readily accessible. Pin critical notes to the top of your Knowledge Base grid for instant retrieval, ensuring high-priority code snippets, diagrams, or task details are always just a click away.
 * **🔗 Secure Note Sharing & Cloning**
     * Generate secure, public read-only links for any note, or send them directly to colleagues via beautifully styled, automated Zielio emails.
     * **Save to Workspace:** Authenticated visitors can instantly clone shared notes directly into their own Zielio goals with a single click.

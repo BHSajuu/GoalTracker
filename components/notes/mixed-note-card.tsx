@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Trash2, Pencil, Maximize2, Layers, Link as LinkIcon,
   Code2, Image as ImageIcon, ExternalLink, Type, X, ChevronLeft, ChevronRight,
-  Check, Copy, FileText, Loader2, Save, ScanEye, Sparkles, CornerDownRight, Eye, Edit3, ChevronDown, Share2
+  Check, Copy, FileText, Loader2, Save, ScanEye, Sparkles, CornerDownRight, Eye, Edit3, ChevronDown, Share2, Pin
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAIGate } from "@/hooks/use-ai-gate";
+import { cn } from "@/lib/utils";
 
 interface MixedNoteCardProps {
   note: Doc<"notes"> & { imageUrls?: string[], analysis?: Record<string, string> };
@@ -91,6 +92,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
   const [expandedAnalysisUrl, setExpandedAnalysisUrl] = useState<string | null>(null);
 
   const removeNote = useMutation(api.notes.remove);
+  const togglePin = useMutation(api.notes.togglePin);
   const saveImageAnalysis = useMutation(api.notes.saveImageAnalysis);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId: note.userId });
@@ -104,6 +106,15 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
       toast.success("Mixed note deleted");
     } catch (error) {
       toast.error("Failed to delete note");
+    }
+  };
+
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await togglePin({ id: note._id, userId: note.userId });
+    } catch (error) {
+      toast.error("Failed to pin note");
     }
   };
 
@@ -281,6 +292,9 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
             </span>
           </div>
           <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-background/50 backdrop-blur-sm rounded-full px-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 rounded-full" onClick={handleTogglePin}>
+              <Pin className={cn("w-3.5 h-3.5", note.isPinned && "fill-current text-yellow-500")} />
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsShareDialogOpen(true); }}>
               <Share2 className="w-3.5 h-3.5" />
             </Button>
@@ -402,18 +416,18 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 pr-6">
+            <div className="flex flex-col lg:flex-row items-center gap-3 pr-6">
               <Button variant="outline" size="sm" onClick={() => { setIsDialogOpen(false); setIsShareDialogOpen(true); }} className="h-8 gap-1.5 text-blue-400 hover:text-blue-300 border-white/10">
-                <Share2 className="w-3.5 h-3.5" /> Share
+                <Share2 className="w-3.5 h-3.5" /> <span className="hidden lg:block">Share</span>
               </Button>
               <Button variant="default" size="sm" onClick={handleEditFromDialog} className="h-8 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors">
                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                Edit Content
+                <span className="hidden lg:block">Edit Content</span>
               </Button>
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-8 space-y-8 py-6">
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-8 space-y-8 pb-6">
 
             {/* TEXT SECTION */}
             {textContent && (
@@ -443,7 +457,7 @@ export function MixedNoteCard({ note }: MixedNoteCardProps) {
                       }
                     }
                   }}
-                />              
+                />
               </div>
             )}
 

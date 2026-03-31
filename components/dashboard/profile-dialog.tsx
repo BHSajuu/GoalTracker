@@ -16,7 +16,7 @@ import { useTheme } from "next-themes";
 import {
   Mail, CalendarDays, Shield, Activity, UploadCloud, Terminal,
   Save, Loader2, User, Download, Trash2, Database, Settings,
-  Bell, Globe, RefreshCw
+  Bell, Globe, RefreshCw, Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -73,6 +73,7 @@ export function ProfileDialog({
     streakReminders: true,
     aiQuotaAlerts: true,
     enableAiFeatures: true,
+    enableTimeTracking: true,
   });
 
   const [otpSent, setOtpSent] = useState(false);
@@ -94,7 +95,10 @@ export function ProfileDialog({
       setDeleteOTP("");
 
       if (user.preferences) {
-        setPrefs(user.preferences);
+        setPrefs({
+          ...user.preferences,
+          enableTimeTracking: user.preferences.enableTimeTracking ?? true // Handle legacy undefined
+        });
       }
     }
   }, [user, open]);
@@ -383,7 +387,7 @@ export function ProfileDialog({
                     </div>
 
                     <div className="pt-4 border-t border-white/5">
-                      <Button onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto min-w-[150px] bg-[#73eb8f] hover:bg-[#368549] text-black font-bold  shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400">
+                      <Button onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto min-w-[150px] bg-[#73eb8f] hover:bg-[#368549] text-black font-bold shadow-[0_0_15px_rgba(168,255,62,0.7)] hover:shadow-[0_0_25px_rgba(168,255,62,0.3)] hover:scale-95 transition-all duration-400">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                         Save Changes
                       </Button>
@@ -452,6 +456,25 @@ export function ProfileDialog({
                         <Switch
                           checked={prefs.aiQuotaAlerts}
                           onCheckedChange={(c) => setPrefs({ ...prefs, aiQuotaAlerts: c })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Task Management */}
+                    <div className="pt-4 border-t border-white/5 space-y-4">
+                      <Label className="text-xs text-muted-foreground font-mono pl-1">TASK MANAGEMENT</Label>
+                      <div className="flex items-center justify-between p-5 rounded-xl bg-secondary/10 border border-white/5">
+                        <div>
+                          <h4 className="text-sm font-bold flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-blue-400" /> Time Tracking
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-[600px]">
+                            Enable the focus timer and actual time tracking features for your tasks.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={prefs.enableTimeTracking}
+                          onCheckedChange={(c) => setPrefs({ ...prefs, enableTimeTracking: c })}
                         />
                       </div>
                     </div>

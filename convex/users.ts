@@ -32,6 +32,7 @@ export const create = mutation({
         streakReminders: true,
         aiQuotaAlerts: true,
         enableAiFeatures: true,
+        enableTimeTracking: true,
       },
       createdAt: Date.now(),
     });
@@ -60,7 +61,7 @@ export const updateProfile = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     const user = await ctx.db.get(id);
-    
+
     if (!user) throw new Error("User not found");
 
     // Prevent duplicate emails
@@ -98,7 +99,7 @@ export const syncTimezone = mutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.id);
     if (!user) return;
-    
+
     // Only update if it has changed to save database writes
     if (user.timezone !== args.timezone) {
       await ctx.db.patch(args.id, { timezone: args.timezone });
@@ -115,6 +116,7 @@ export const updatePreferences = mutation({
       streakReminders: v.boolean(),
       aiQuotaAlerts: v.boolean(),
       enableAiFeatures: v.boolean(),
+      enableTimeTracking: v.boolean(),
     }),
   },
   handler: async (ctx, args) => {

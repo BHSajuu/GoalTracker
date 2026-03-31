@@ -81,67 +81,25 @@ export function UpsertNoteDialog({
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [deletedLegacyImage, setDeletedLegacyImage] = useState(false);
 
+  // Deletion State
+  const [isDeletingImage, setIsDeletingImage] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Track the active session so background updates don't reset the UI
+  const prevSessionRef = useRef<string | null>(null);
 
   // Mutations & Actions
   const generateUploadUrl = useMutation(api.notes.generateUploadUrl);
   const createNote = useMutation(api.notes.create);
   const updateNote = useMutation(api.notes.update);
+  const deleteNoteImage = useMutation(api.notes.deleteImage);
   const analyzeImage = useAction(api.ai.analyzeImage);
   const usage = useQuery(api.rateLimit.getUsage, { userId });
 
   const isRateLimited = usage !== undefined && usage >= 8;
 
   const { withAIGate, AIGateDialog } = useAIGate();
-
-  // Initialize state
-  useEffect(() => {
-    if (open && initialData) {
-      // Determine default active tab based on what data exists
-      if (initialData.type === "mixed") {
-        if (initialData.content) setActiveTab("text");
-        else if (initialData.images && initialData.images.length > 0) setActiveTab("image");
-        else if (initialData.code) setActiveTab("code");
-        else if (initialData.links && initialData.links.length > 0) setActiveTab("link");
-        else setActiveTab("text");
-      } else {
-        setActiveTab(initialData.type);
-      }
-
-      // Populate text
-      if (initialData.type === "text") setText(initialData.content || "");
-      if (initialData.type === "mixed" && initialData.content) setText(initialData.content);
-
-      // Populate links 
-      if (initialData.type === "link" || initialData.type === "mixed") {
-        if (initialData.links && initialData.links.length > 0) {
-          setLinks(initialData.links);
-        } else {
-          setLinks([""]);
-        }
-      }
-
-      // Populate code
-      if (initialData.type === "code") {
-        setCodeSnippet(initialData.content || "");
-        setLanguage(initialData.language || "javascript");
-      }
-      if (initialData.type === "mixed" && initialData.code) {
-        setCodeSnippet(initialData.code);
-        if (initialData.language) setLanguage(initialData.language);
-      }
-
-      // Populate images
-      if (initialData.type === "image" || initialData.type === "mixed") {
-        if (initialData.imageUrls) setExistingImageUrls(initialData.imageUrls);
-        if (initialData.images) setExistingImages(initialData.images);
-      }
-
-    } else if (open && mode === "create") {
-      resetForm();
-    }
-  }, [open, initialData, mode]);
 
   const resetForm = () => {
     setText("");
@@ -157,6 +115,74 @@ export function UpsertNoteDialog({
     setIsDragging(false);
     setActiveTab("text");
   };
+
+  // Smarter initialization that ignores real-time background updates while editing
+  useEffect(() => {
+    if (!open) {
+      prevSessionRef.current = null;
+      return;
+    }
+
+    const sessionId = mode === "edit" ? initialData?._id : "create";
+
+    // Wait for data to load if editing
+    if (mode === "edit" && !initialData) return;
+
+    // Only initialize if we are opening a DIFFERENT note or opening it fresh
+    if (sessionId && prevSessionRef.current !== sessionId) {
+      prevSessionRef.current = sessionId;
+
+      // Freshly open: clear out temporary data
+      setSelectedFiles([]);
+      setPreviewUrls([]);
+      setUploadProgress({ current: 0, total: 0 });
+      setIsDeletingImage(null);
+      setDeletedLegacyImage(false);
+
+      if (mode === "edit" && initialData) {
+        if (initialData.type === "mixed") {
+          if (initialData.content) setActiveTab("text");
+          else if (initialData.images && initialData.images.length > 0) setActiveTab("image");
+          else if (initialData.code) setActiveTab("code");
+          else if (initialData.links && initialData.links.length > 0) setActiveTab("link");
+          else setActiveTab("text");
+        } else {
+          setActiveTab(initialData.type);
+        }
+
+        setText(initialData.content || "");
+
+        if (initialData.type === "link" || initialData.type === "mixed") {
+          setLinks(initialData.links && initialData.links.length > 0 ? initialData.links : [""]);
+        } else {
+          setLinks([""]);
+        }
+
+        // Populate code
+        if (initialData.type === "code") {
+          setCodeSnippet(initialData.content || "");
+          setLanguage(initialData.language || "javascript");
+        } else if (initialData.type === "mixed" && initialData.code) {
+          setCodeSnippet(initialData.code);
+          setLanguage(initialData.language || "javascript");
+        } else {
+          setCodeSnippet("");
+        }
+
+        // Populate existing images safely
+        if (initialData.type === "image" || initialData.type === "mixed") {
+          setExistingImageUrls(initialData.imageUrls ? [...initialData.imageUrls] : []);
+          setExistingImages(initialData.images ? [...initialData.images] : []);
+        } else {
+          setExistingImageUrls([]);
+          setExistingImages([]);
+        }
+
+      } else if (mode === "create") {
+        resetForm();
+      }
+    }
+  }, [open, initialData, mode]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -227,13 +253,38 @@ export function UpsertNoteDialog({
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
-  const removeExistingImage = (index: number) => {
-    setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
-
-    if (existingImages && existingImages.length > 0) {
+  const removeExistingImage = async (index: number) => {
+    // If we are in create mode, it's just local state anyway (shouldn't happen, but safe)
+    if (mode === "create" || !initialData?._id) {
+      setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
       setExistingImages(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setDeletedLegacyImage(true);
+      return;
+    }
+
+    setIsDeletingImage(index);
+    try {
+      const storageIdToDelete = existingImages[index];
+
+      if (storageIdToDelete) {
+        await deleteNoteImage({
+          noteId: initialData._id,
+          userId: userId,
+          storageId: storageIdToDelete
+        });
+        toast.success("Image permanently deleted.");
+      } else {
+        setDeletedLegacyImage(true);
+      }
+
+      // Remove from local UI state
+      setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+
+    } catch (e) {
+      toast.error("Failed to delete image.");
+      console.error(e);
+    } finally {
+      setIsDeletingImage(null);
     }
   };
 
@@ -293,31 +344,28 @@ export function UpsertNoteDialog({
     setUploadProgress({ current: 0, total: selectedFiles.length });
 
     try {
+      // Only tracking new ones to upload
+      const newStorageIds: string[] = [];
+      // Handle NEW Image Uploads
+      if (selectedFiles.length > 0) {
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          setUploadProgress(prev => ({ ...prev, current: i + 1 }));
+          const postUrl = await generateUploadUrl();
+          const result = await fetch(postUrl, {
+            method: "POST",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+          const { storageId } = await result.json();
+          newStorageIds.push(storageId);
+        }
+      }
+
+      // Final images array is explicitly the remaining existing ones PLUS the newly uploaded ones
       let finalImages: string[] | undefined = undefined;
-
-      // Handle Image Uploads
-      if (hasImages) {
-        const newStorageIds: string[] = [];
-        if (selectedFiles.length > 0) {
-          for (let i = 0; i < selectedFiles.length; i++) {
-            const file = selectedFiles[i];
-            setUploadProgress(prev => ({ ...prev, current: i + 1 }));
-            const postUrl = await generateUploadUrl();
-            const result = await fetch(postUrl, {
-              method: "POST",
-              headers: { "Content-Type": file.type },
-              body: file,
-            });
-            const { storageId } = await result.json();
-            newStorageIds.push(storageId);
-          }
-        }
-
-        if (mode === "edit") {
-          finalImages = [...existingImages, ...newStorageIds];
-        } else {
-          finalImages = newStorageIds;
-        }
+      if (existingImages.length > 0 || newStorageIds.length > 0) {
+        finalImages = [...existingImages, ...newStorageIds];
       }
 
       // Determine Note Type based on populated data
@@ -370,7 +418,7 @@ export function UpsertNoteDialog({
         links: payloadLinks,
       };
 
-      if (hasImages) {
+      if (selectedFiles.length > 0) {
         setUploadProgress(prev => ({ ...prev, current: prev.total + 1 }));
       }
 
@@ -391,6 +439,9 @@ export function UpsertNoteDialog({
     } finally {
       setIsSubmitting(false);
       setUploadProgress({ current: 0, total: 0 });
+      // Force clear the preview states instantly upon completion
+      setSelectedFiles([]);
+      setPreviewUrls([]);
     }
   };
 
@@ -865,10 +916,11 @@ export function UpsertNoteDialog({
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <button
                                       onClick={() => removeExistingImage(idx)}
-                                      className="absolute top-2 right-2 bg-red-500/90 hover:bg-red-500 text-white rounded-full p-1.5 transition-all opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
+                                      disabled={isDeletingImage === idx}
+                                      className="absolute top-2 right-2 bg-red-500/90 hover:bg-red-500 disabled:bg-red-500/50 text-white rounded-full p-1.5 transition-all opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100 flex items-center justify-center"
                                       title="Delete this image"
                                     >
-                                      <X className="w-3 h-3" />
+                                      {isDeletingImage === idx ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
                                     </button>
                                   </div>
                                 ))}
@@ -905,7 +957,7 @@ export function UpsertNoteDialog({
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || isAnalyzing}
+                  disabled={isSubmitting || isAnalyzing || isDeletingImage !== null}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 font-medium shadow-lg shadow-primary/10 transition-all"
                 >
                   {isSubmitting ? (

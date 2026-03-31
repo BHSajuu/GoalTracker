@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react"
-import { useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   CheckCircle2,
   Circle,
@@ -50,6 +60,10 @@ export function TaskItem({
   isHardDelete = false,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  
+  // States for the Time Tracking Dialog
+  const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [manualActualTime, setManualActualTime] = useState<number>(0);
 
   // OPTIMISTIC STATE
   const [optimisticTask, setOptimisticTask] = useState({
@@ -71,6 +85,10 @@ export function TaskItem({
 
   const { startFocusSession } = useFocusTimer();
 
+  // Query User Preferences for Time Tracking Toggle
+  const currentUser = useQuery(api.users.getById, { id: task.userId });
+  const isTimeTrackingEnabled = currentUser?.preferences?.enableTimeTracking ?? true;
+
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateGoalProgress = useMutation(api.goals.updateProgress);
   const removeTask = useMutation(api.tasks.remove);
@@ -78,19 +96,56 @@ export function TaskItem({
   const unarchiveTask = useMutation(api.tasks.unarchive);
   const updateTask = useMutation(api.tasks.update);
 
-  const handleToggle = async () => {
-    //  Instantly update UI
+  // Standard toggle logic
+  const executeToggle = async () => {
     const newCompletedState = !optimisticTask.completed;
     setOptimisticTask((prev) => ({ ...prev, completed: newCompletedState }));
 
-    //  Sync in background
     try {
       await toggleComplete({ id: task._id, userId: task.userId });
       await updateGoalProgress({ id: goalId, userId: task.userId });
     } catch (error) {
-      //  Revert on failure
       setOptimisticTask((prev) => ({ ...prev, completed: !newCompletedState }));
       toast.error("Network error: Failed to update task");
+    }
+  };
+
+  const handleToggle = async () => {
+    // Only intercept with dialog if they have Time Tracking ENABLED in preferences
+    if (!optimisticTask.completed && isTimeTrackingEnabled) {
+      const estimated = task.estimatedTime || 0;
+      const actual = task.actualTime || 0;
+      
+      // Heuristic Check: Tracked less than 20% of estimated?
+      if (estimated > 0 && actual < (estimated * 0.2)) {
+        setManualActualTime(actual);
+        setShowTimeDialog(true);
+        return; // Stop and wait for dialog interaction
+      }
+    }
+    
+    // Normal toggle if no red flags
+    await executeToggle();
+  };
+
+  const handleSaveManualTime = async () => {
+    setShowTimeDialog(false);
+    
+    // Optimistically complete
+    setOptimisticTask((prev) => ({ ...prev, completed: true }));
+    
+    try {
+      await updateTask({ 
+        id: task._id, 
+        userId: task.userId, 
+        completed: true, 
+        actualTime: manualActualTime 
+      });
+      await updateGoalProgress({ id: goalId, userId: task.userId });
+      toast.success("Time saved and task completed!");
+    } catch (error) {
+      setOptimisticTask((prev) => ({ ...prev, completed: false }));
+      toast.error("Failed to complete task and save time");
     }
   };
 
@@ -217,7 +272,8 @@ export function TaskItem({
               </div>
 
               <div className="flex items-center gap-2">
-                {!optimisticTask.completed && !optimisticTask.isArchived && (
+                {/* Timer Image is ONLY shown if preference is Enabled */}
+                {!optimisticTask.completed && !optimisticTask.isArchived && isTimeTrackingEnabled && (
                   <Image
                     src="/timer2.png"
                     alt="Focus"
@@ -306,7 +362,8 @@ export function TaskItem({
                 </span>
               )}
 
-              {task.actualTime !== undefined && task.actualTime > 0 && (
+              {/* Only show Actual Time chip if the user wants Time Tracking shown */}
+              {isTimeTrackingEnabled && task.actualTime !== undefined && task.actualTime > 0 && (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary">
                   <Clock className="w-3 h-3" />
                   Actual: {formatDuration(task.actualTime)}
@@ -324,6 +381,50 @@ export function TaskItem({
         mode="edit"
         initialData={task}
       />
+
+      {/* Time Tracking Validation Dialog */}
+      <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Incomplete Time Tracking</DialogTitle>
+            <DialogDescription>
+              You estimated {task.estimatedTime} mins for this task, but only tracked {task.actualTime || 0} mins. 
+              Did you finish extremely fast, or forget to track the rest?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="actualTime" className="col-span-3">
+                Actual Total Time Spent (minutes)
+              </Label>
+              <Input
+                id="actualTime"
+                type="number"
+                min={1}
+                value={manualActualTime}
+                onChange={(e) => setManualActualTime(parseInt(e.target.value) || 0)}
+                className="col-span-1"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex w-full justify-between sm:justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowTimeDialog(false);
+                executeToggle(); // They skipped, just mark it complete normally
+              }}
+            >
+              Skip & Complete
+            </Button>
+            <Button onClick={handleSaveManualTime}>
+              Save Time & Complete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

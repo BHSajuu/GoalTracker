@@ -99,18 +99,21 @@ export const getTasksPaginated = query({
     // 5. Apply Complex Sorting
     const sortedTasks = tabFiltered.sort((a, b) => {
       // 1st: Uncompleted tasks top, completed bottom
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      // if (a.completed !== b.completed) return a.completed ? 1 : -1;
 
       // 2nd: Due Date (Earliest first)
-      if (a.dueDate && !b.dueDate) return -1;
-      if (!a.dueDate && b.dueDate) return 1;
-      if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
-        return a.dueDate - b.dueDate;
-      }
+      // if (a.dueDate && !b.dueDate) return -1;
+      // if (!a.dueDate && b.dueDate) return 1;
+      // if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
+      //   return a.dueDate - b.dueDate;
+      // }
 
       // 3rd: Priority Level
-      const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-      return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+      // const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      // return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+      
+      // 4th: Filter strictly by Created Time (Newest First)
+      return b.createdAt - a.createdAt;
     });
 
     // 6. Paginate Data
@@ -202,11 +205,11 @@ export const update = mutation({
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     dueDate: v.optional(v.number()),
     estimatedTime: v.optional(v.number()),
+    actualTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...updates } = args;
 
-    // Fetch the task first to check its existing completedAt status
     const task = await ctx.db.get(id);
     if (!task) throw new Error("Task not found");
     if (task.userId !== userId) throw new Error("Unauthorized");
@@ -215,9 +218,27 @@ export const update = mutation({
       Object.entries(updates).filter(([, value]) => value !== undefined)
     ) as Partial<typeof updates> & { completedAt?: number };
 
-    // Only set a new completedAt if it doesn't already have one.
+    // Set completedAt if it's being marked complete for the first time
     if (updates.completed === true && !task.completedAt) {
       filteredUpdates.completedAt = Date.now();
+    }
+
+    // Update goal progress if completion status changes
+    if (updates.completed !== undefined && updates.completed !== task.completed) {
+       await ctx.db.patch(id, filteredUpdates); // Apply task update first
+       
+       const allGoalTasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_goal", (q) => q.eq("goalId", task.goalId))
+        .collect();
+
+      const activeTasks = allGoalTasks.filter((t) => !t.isArchived);
+      const progress = activeTasks.length > 0
+        ? Math.round((activeTasks.filter(t => t.completed).length / activeTasks.length) * 100)
+        : 0;
+
+      await ctx.db.patch(task.goalId, { progress, updatedAt: Date.now() });
+      return;
     }
 
     return await ctx.db.patch(id, filteredUpdates);
@@ -416,15 +437,23 @@ export const getEfficiencyStats = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
-    // Filter for completed tasks that have both estimated and actual time recorded
-    const completedTasks = tasks.filter(
-      (t) =>
-        t.completed &&
-        t.completedAt &&
-        t.estimatedTime !== undefined &&
-        t.estimatedTime > 0 &&
-        t.actualTime !== undefined
-    );
+    const completedTasks = tasks.filter((t) => {
+      // 1. Basic validation: Must be completed and have > 0 values for both times
+      if (!t.completed || !t.completedAt || !t.estimatedTime || t.estimatedTime <= 0 || !t.actualTime || t.actualTime <= 0) {
+        return false;
+      }
+
+      // 2. MINIMUM TRACKING HEURISTIC:
+      // If the recorded actual time is less than 20% of the estimated time, 
+      // we mathematically assume the user forgot to track the full session.
+      // We filter these out to prevent artificial spikes in the efficiency graph.
+      const trackingRatio = t.actualTime / t.estimatedTime;
+      if (trackingRatio < 0.20) {
+        return false; 
+      }
+
+      return true;
+    });
 
     // Sort by completion date (oldest to newest) to show progression over time
     const sortedTasks = completedTasks.sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
@@ -445,6 +474,10 @@ export const getStats = query({
     localTodayStart: v.number()
   },
   handler: async (ctx, args) => {
+    // Fetch user to get their timezone for localized day formatting
+    const user = await ctx.db.get(args.userId);
+    const timezone = user?.timezone || "UTC";
+
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -453,9 +486,15 @@ export const getStats = query({
     const todayTime = args.localTodayStart;
     const weekAgoTime = todayTime - (7 * 24 * 60 * 60 * 1000);
 
+    // Accurately bucket completion timestamps relative to the user's local start of day
+    // This prevents server UTC midnight from bleeding into the user's local timezone
     const completedTasksWithDates = tasks
       .filter((t) => t.completed && t.completedAt)
-      .map((t) => new Date(t.completedAt!).setHours(0, 0, 0, 0))
+      .map((t) => {
+        const diff = t.completedAt! - args.localTodayStart;
+        const dayIndex = Math.floor(diff / (24 * 60 * 60 * 1000));
+        return args.localTodayStart + (dayIndex * 24 * 60 * 60 * 1000);
+      })
       .sort((a, b) => b - a);
 
     const uniqueDays = Array.from(new Set(completedTasksWithDates));
@@ -487,6 +526,8 @@ export const getStats = query({
     const totalPending = tasks.filter((task) => !task.completed && !task.isArchived).length;
 
     const dailyData = [];
+    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone });
+
     for (let i = 6; i >= 0; i--) {
       const dateStart = todayTime - (i * 24 * 60 * 60 * 1000);
       const nextDate = dateStart + (24 * 60 * 60 * 1000);
@@ -499,8 +540,11 @@ export const getStats = query({
           task.completedAt < nextDate
       ).length;
 
+      // Ensure formatting happens exactly in the middle of the user's local day to avoid DST/Shift edge cases
+      const noon = dateStart + (12 * 60 * 60 * 1000);
+
       dailyData.push({
-        date: new Date(dateStart).toLocaleDateString("en-US", { weekday: "short" }),
+        date: formatter.format(new Date(noon)),
         completed: completedOnDay,
       });
     }
@@ -528,14 +572,21 @@ export const getEstimationMultiplier = query({
 
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-    const recentCompletedTasks = tasks.filter(
-      (t) =>
-        t.completed === true &&
-        t.completedAt &&
-        t.completedAt >= oneWeekAgo &&
-        t.estimatedTime && t.estimatedTime > 0 &&
-        t.actualTime && t.actualTime > 0
-    );
+    const recentCompletedTasks = tasks.filter((t) => {
+      // 1. Must be fully valid and completed within the last week
+      if (!t.completed || !t.completedAt || t.completedAt < oneWeekAgo || !t.estimatedTime || t.estimatedTime <= 0 || !t.actualTime || t.actualTime <= 0) {
+        return false;
+      }
+      
+      // 2. Apply the Minimum Tracking Heuristic here as well
+      // We don't want the AI thinking you are super fast when you just forgot to track
+      const trackingRatio = t.actualTime / t.estimatedTime;
+      if (trackingRatio < 0.20) {
+         return false;
+      }
+
+      return true;
+    });
 
     if (recentCompletedTasks.length === 0) return 1.0;
 

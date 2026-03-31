@@ -266,3 +266,50 @@ export const saveSharedNote = mutation({
     return newNoteId;
   }
 });
+
+export const deleteImage = mutation({
+  args: {
+    noteId: v.id("notes"),
+    userId: v.id("users"),
+    storageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.noteId);
+    if (!note) throw new Error("Note not found");
+    if (note.userId !== args.userId) throw new Error("Unauthorized to update this note");
+
+    // 1. Delete from Convex Storage if it's a valid storage ID
+    if (!args.storageId.startsWith("http")) {
+      try {
+        await ctx.storage.delete(args.storageId);
+      } catch (e) {
+        console.error("Failed to delete from storage, might already be gone:", args.storageId);
+      }
+    }
+
+    // 2. Remove the ID from the note's images array
+    if (note.images) {
+      const updatedImages = note.images.filter((id) => id !== args.storageId);
+      
+      await ctx.db.patch(args.noteId, { images: updatedImages });
+      return updatedImages;
+    }
+    
+    return [];
+  },
+});
+
+export const togglePin = mutation({
+  args: {
+    id: v.id("notes"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.id);
+    if (!note) throw new Error("Note not found");
+    if (note.userId !== args.userId) throw new Error("Unauthorized");
+
+    await ctx.db.patch(args.id, { isPinned: !note.isPinned });
+    return true;
+  },
+});
